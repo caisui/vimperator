@@ -96,7 +96,7 @@
                     } else {
                         q = q.slice(1, -1);
                         let tags = {};
-                        result = bookmarks.get("", q);
+                        let result = bookmarks.get("", q);
                         let bm = [];
                         let path = "/" + q.join("/") + "/";
                         let cnt = 0;
