@@ -2,11 +2,21 @@
 (function(){
 	const autoShowComplete = 1;
 	//Register.add("s",function(){ selectInput();return "";});
-	mappings.addUserMap([modes.INSERT],["<C-s>"],"select completer",function() selectInput());
+	//mappings.addUserMap([modes.INSERT],["<C-s>"],"select completer",function() selectInput());
+  (function () {
+    let map = mappings.get(modes.INSERT, "<C-i>");
+    if(!map) return;
+
+    let action = map.action;
+    map.action = function () {
+      if(is(liberator.focus, HTMLSelectElement)) selectInput(liberator.focus);
+      else action.call(this, arguments);
+    };
+  })();
 	
   function has(a,b) (b in a)
 	function is(a,b) a instanceof b
-	function selectInput(elem){
+	function selectInput(elem) {
 		if(!elem) elem = liberator.focus;
 		if(!is(elem,HTMLSelectElement)) return;
 		commandline.input("select input:",function(arg){
