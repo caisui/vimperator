@@ -40,6 +40,28 @@
 		</>;
 	//}}}
 
+	CommandLine.prototype.__defineGetter__("_maxHeight", function () {
+		let screen = window.screen;
+		//let height = window.innerHeight + window.screenY;
+		//return Math.max(height, screen.height - height);
+		return 2 * screen.height / 3;
+	});
+
+	function patch(obj, attr, func) {
+		obj[attr] = liberator.eval("(function ()" + func(obj[attr]) + ")()", obj[attr]);
+	}
+
+	patch(CommandLine.prototype, "updateOutputHeight", function (func) {
+		let code = func.toString().split("\n");
+		code[10] = <>this._outputContainer.height = Math.min(doc.height, availableHeight, commandline._maxHeight);</>;
+		return code.join("");
+	});
+	//patch(ItemList.prototype, "_autoSize", function (func) {
+	//	let code = func.toString().split("\n");
+	//	code[4] = <>this._minHeight = Math.min(commandline._maxHeight, Math.max(this._minHeight, this._divNodes.completions.getBoundingClientRect().bottom));</>;
+	//	return code.join("");
+	//});
+
 	function oneEventListenr(obj, event, usecapture, func){
 		let args = [event, function(){
 			this.removeEventListener.apply(this, args);
@@ -132,6 +154,19 @@
       commandline._multilineOutputWidget = iframe;
       commandline._outputContainer = vbox;
       iframe.contentDocument.body.setAttribute("id", "liberator-multiline-output-content");
+
+			fbox.addEventListener("popupshown", function () {
+				commandline.updateMorePrompt();
+			}, false);
+			//let timer = 0;
+			//iframe.addEventListener("resize", function (event) {
+			//	timer && window.clearTimeout(timer);
+			//	timer = window.setTimeout(function () {
+			//		timer = 0;
+			//		commandline.updateOutputHeight();
+			//		commandline.updateMorePrompt();
+			//	}, 200);
+			//}, false);
     });
   if(pMode&PANEL_MODE.COMPLETE)
     OverlayPanel("liberator-completions",function(id,fbox,vbox,iframe){
