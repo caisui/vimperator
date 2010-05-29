@@ -1,4 +1,4 @@
-// vim: set fdm=marker :
+// vim: set fdm=marker et:
 (function(){
   const PANEL_MODE={
     MULTILINE : 1,
@@ -41,10 +41,10 @@
   //}}}
 
   CommandLine.prototype.__defineGetter__("_maxHeight", function () {
+    let rect = document.getElementById(sid).getBoundingClientRect();
     let screen = window.screen;
-    //let height = window.innerHeight + window.screenY;
-    //return Math.max(height, screen.height - height);
-    return 2 * screen.height / 3;
+    let height = window.screenY + rect.top + window.outerHeight - window.innerHeight;
+    return Math.max(height, screen.height - height) - rect.height;
   });
 
   function patch(obj, attr, func) {
@@ -56,11 +56,11 @@
     code[10] = <>this._outputContainer.height = Math.min(doc.height, availableHeight, commandline._maxHeight);</>;
     return code.join("");
   });
-  //patch(ItemList.prototype, "_autoSize", function (func) {
-  //  let code = func.toString().split("\n");
-  //  code[4] = <>this._minHeight = Math.min(commandline._maxHeight, Math.max(this._minHeight, this._divNodes.completions.getBoundingClientRect().bottom));</>;
-  //  return code.join("");
-  //});
+  patch(ItemList.prototype, "_autoSize", function (func) {
+    let code = func.toString().split("\n");
+    code[4] = <>this._minHeight = Math.min(commandline._maxHeight, Math.max(this._minHeight, this._divNodes.completions.getBoundingClientRect().bottom));</>;
+    return code.join("");
+  });
 
   function oneEventListenr(obj, event, usecapture, func){
     let args = [event, function(){
