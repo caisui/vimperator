@@ -27,14 +27,13 @@
 
   createXpath(liberator.globalVariables[global_attr1]);
 
-  var offset=0;
   function action(e){
-    var ex;
     try{
-      var sel = (new XPCNativeWrapper(content.window)).getSelection();
-      var doc = e.ownerDocument;
+      let doc = e.ownerDocument;
+      let win = doc.defaultView;
+      var sel = win.getSelection();
       var range = doc.createRange();
-      var e1,e2,offset=0;
+      var e1, e2, offset = 0;
       let(it = doc.evaluate(".//text()", e, null, 5, null)){
         let t;
         while(t = it.iterateNext()){
@@ -54,6 +53,8 @@
         range.setStart(e, offset);
         sel.removeAllRanges();
         sel.addRange(range);
+        if ("focusedWindow" in Buffer) Buffer.focusedWindow = win;
+        else win.focus();
         options.setPref("accessibility.browsewithcaret", true);
       }else{
         liberator.echoerr("cannot found text node!!");
@@ -63,7 +64,5 @@
     }
   }
 
-  hints.addMode(mappingKey,"caret position",function() action.apply(this,arguments),function() xpath);
-  mappings.addUserMap([modes.CARET],[";"+mappingKey],"caret position",function() hints.show(mappingKey));
+  hints.addMode(mappingKey, "caret position", action, function() xpath);
 })();
-
