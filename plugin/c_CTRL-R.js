@@ -1,4 +1,49 @@
 // vim: set fdm=marker  et :
+var INFO =
+<plugin name="Register" version="0.0.1"
+        href="http://github.com/caisui/vimperator/blob/master/plugin/c_CTRL-R.js"
+        summary="Register"
+        xmlns="http://vimperator.org/namespaces/liberator">
+    <author href="http://d.hatena.ne.jp/caisui">caisui</author>
+    <license href="http://www.opensource.org/licenses/bsd-license.php">New BSD License</license>
+    <project name="Vimperator" />
+    <item>
+        <description>
+          <tags> c_{"<"}C-R{">"} i_{"<"}C-R{">"} </tags>
+            vim のレジスタのようなもの
+
+            <dl>
+              <dt>%</dt>            <dd>url</dd>
+              <dt>+</dt>            <dd>クリップボードの内容</dd>
+              <dt>*</dt>            <dd>クリップボードの内容</dd>
+              <dt>:</dt>            <dd>最後のコマンド</dd>
+              <dt>/</dt>            <dd>最後の検索ワード</dd>
+              <dt>{"<"}C-w{">"}</dt><dd>選択範囲の内容</dd>
+              <dt>=</dt>            <dd>javascript の 実行結果</dd>
+              <dt>{"<"}Tab{">"}</dt><dd>補完機能</dd>
+              <dt>h</dt>            <dd>%Y/%m/%d</dd>
+              <dt>t</dt>            <dd>%H:%M</dd>
+              <dt>n</dt>            <dd>%Y/%m/%d %H:%M</dd>
+            </dl>
+
+            追加
+            <code>
+              Register.add(name, func);
+            </code>
+        </description>
+    </item>
+    <item>
+        <tags> n_" v_" </tags>
+        <description>
+            選択範囲をレジスタに格納(関数が組み込んである場合、そちらが優先される)
+            <dl>
+                <dt>a-z</dt> <dd>選択範囲を該当レジスタに格納</dd>
+                <dt>A-Z</dt> <dd>選択範囲を該当レジスタに追記</dd>
+            </dl>
+        </description>
+    </item>
+</plugin>;
+
 (function(self){
   //const key = self.PATH.toLowerCase();
   const key = self.NAME;
@@ -131,44 +176,53 @@
     }
   }
 
-  function commandlineInput(extra){
+  function commandlineStep (extra) {
     const modules = liberator.modules;
     if(modules.modes._modeStack.length > 0) return "";
-
     let isCommand = liberator.mode & liberator.modules.modes.COMMAND_LINE;
     let elem = Editor.getEditor();
     let [start,end, text, prompt] = [elem.selectionStart, elem.selectionEnd, elem.value,
       commandline._currentPrompt];
+    function restore (ins) {
+      commandline._completionList.hide();
+      if(isCommand){
+        commandline.open(prompt, text, modes.EX);
+        elem.selectionStart = start;
+        elem.selectionEnd   = end;
+      }
+      if (ins)
+        elem.editor.QueryInterface(Ci.nsIPlaintextEditor).insertText(ins);
+    }
+    function cancel (arg) {
+        restore();
+        if(isCommand){
+          scrollIntoView(elem);
+          throw new Error("stop escape event");
+        }
+    }
     commandline.input(extra.prompt || "",function(arg){
       try{
-        commandline._completionList.hide();
-        let val = extra.action(arg);
-        if(isCommand){
-          commandline.open(prompt, text, modes.EX);
-          elem.selectionStart = start;
-          elem.selectionEnd   = end;
-        }
-        
-        elem.editor.QueryInterface(Ci.nsIPlaintextEditor).insertText(val);
+        extra.action.call({__proto__: extra, restore: restore, cancel: cancel}, arg);
       }catch(ex){
         liberator.echoerr(ex);
       }
     },{
       completer: function(context) extra.completer(context),
-      onCancel: function (arg) {
-        commandline._completionList.hide();
-        if(isCommand){
-          commandline.open(prompt, text, modes.EX);
-          elem.selectionStart = start;
-          elem.selectionEnd   = end;
-
-          scrollIntoView(elem);
-          throw new Error("stop escape event");
-        }
-      },
+      onCancel: cancel
     });
     return "";
   }
+
+  function commandlineInput(extra) {
+    let args = {
+        __proto__: extra,
+        action: function (args) {
+            this.restore(extra.action(args));
+        }
+    };
+    return commandlineStep(args);
+  }
+
   function expressionRegister() commandlineInput({
     prompt: "=",
     action:function(arg) liberator.eval(arg).toString(),
@@ -185,6 +239,8 @@
   })
 
   var reg = conf.reg;
+  reg.input = commandlineInput;
+  reg.inputEx = commandlineStep;
 
   //{{{entry action
   reg
