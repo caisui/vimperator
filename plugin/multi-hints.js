@@ -200,9 +200,6 @@ var INFO =
         hints.hide();
         hints._hintMode = hints._hintModes[mode];
 
-        //let hintchars = options.hintchars;
-        //if (hintchars) options.hintchars = "0123456789";
-
         hints._generate();
         hints._showHints();
 
@@ -210,7 +207,6 @@ var INFO =
             delete hints._hintModes[mode];
             hints.hide();
 
-            //if (hintchars) options.hintchars = hintchars;
             commandline.updateMorePrompt();
         }
 
