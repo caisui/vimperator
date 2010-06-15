@@ -60,8 +60,6 @@ var INFO =
 ;
 
 (function (self) {
-    let multihintchar = liberator.globalVariables.multihintchars;
-
     let _hintModes = {
         follow: {
             desc: "follow link",
@@ -292,8 +290,6 @@ var INFO =
 
                             parentId = [e.id for (e in parent(elem.parentNode)) if (e.id)]
                                 .filter(function(n) parentId.indexOf(n) >= 0);
-                            //classList = Array.concat(elem.classList)
-                            //classList = [c for([, c] in elem.classList)]
                             classList = [c for (c in util.Array.itervalues(elem.classList))]
                                 .filter(function(n) classList.indexOf(n) >= 0);
                         }
