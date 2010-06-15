@@ -9,21 +9,22 @@ var INFO =
     <project name="Vimperator" />
     <item>
         <description>
-          <tags> c_{"<"}C-R{">"} i_{"<"}C-R{">"} </tags>
+          <tags> c_{"<"}C-r{">"} i_{"<"}C-r{">"} </tags>
             vim のレジスタのようなもの
 
             <dl>
-              <dt>%</dt>            <dd>url</dd>
-              <dt>+</dt>            <dd>クリップボードの内容</dd>
-              <dt>*</dt>            <dd>クリップボードの内容</dd>
-              <dt>:</dt>            <dd>最後のコマンド</dd>
-              <dt>/</dt>            <dd>最後の検索ワード</dd>
-              <dt>{"<"}C-w{">"}</dt><dd>選択範囲の内容</dd>
-              <dt>=</dt>            <dd>javascript の 実行結果</dd>
-              <dt>{"<"}Tab{">"}</dt><dd>補完機能</dd>
-              <dt>h</dt>            <dd>%Y/%m/%d</dd>
-              <dt>t</dt>            <dd>%H:%M</dd>
-              <dt>n</dt>            <dd>%Y/%m/%d %H:%M</dd>
+              <dt>%</dt>            <dd tag="<C-r>%">url</dd><tag>&lt;C-R%&gt;</tag>
+              <dt>+</dt>            <dd tag="<C-r>+">クリップボードの内容</dd>
+              <dt>*</dt>            <dd tag="<C-r>*">クリップボードの内容</dd>
+              <dt>:</dt>            <dd tag="<C-r>:">最後のコマンド</dd>
+              <dt>/</dt>            <dd tag="<C-r>/">最後の検索ワード</dd>
+              <dt>{"<"}C-w{">"}</dt><dd tag="<C-r><C-w>">選択範囲の内容</dd>
+              <dt>=</dt>            <dd tag="<C-r>=">javascript の 実行結果</dd>
+              <dt>{"<"}Tab{">"}</dt><dd tag="<C-r><Tab>">補完機能</dd>
+              <dt>h</dt>            <dd tag="<C-r>h">host名</dd>
+              <dt>d</dt>            <dd tag="<C-r>d">%Y/%m/%d</dd>
+              <dt>t</dt>            <dd tag="<C-r>t">%H:%M</dd>
+              <dt>n</dt>            <dd tag="<C-r>n">%Y/%m/%d %H:%M</dd>
             </dl>
 
             追加
