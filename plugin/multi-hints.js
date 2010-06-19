@@ -239,8 +239,11 @@ var INFO =
         completer: function (context, args) {
             if(args.length < 2)
                 context.completions = [[name, e.desc] for([name, e] in Iterator(_hintModes))];
-            else
-                context.completions = [[n.value, n.host] for([, n] in storage[historyQuery])];
+            else {
+                let list = [[n.value, n.host] for([, n] in storage[historyQuery])];
+                list.reverse();
+                context.completions = list;
+            }
         }
     }, true);
 
