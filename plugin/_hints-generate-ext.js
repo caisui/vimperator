@@ -1,6 +1,6 @@
 // vim: set sw=4 ts=4 et :
 var INFO =
-<plugin name="multi-hints" version="0.0.1"
+<plugin name="hints._generate.ext" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/_hints-generate-ext.js"
         summary="Hints.prototype._generate extension"
         xmlns="http://vimperator.org/namespaces/liberator">
