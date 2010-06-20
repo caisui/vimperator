@@ -1,5 +1,5 @@
-// vim: set sw=4 ts=4 et :
-var INFO =
+// vim: set sw=4 ts=4 et fdm=marker:
+var INFO = //{{{
 <plugin name="multi-hints" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/multi-hints.js"
         summary="multi select hint"
@@ -56,10 +56,20 @@ var INFO =
             </dl>
         </description>
     </item>
+    <item>
+        <tags><![CDATA[<C-;><Tab>]]></tags>
+        <description>
+            <k><![CDATA[;<Tab>]]></k>っぽい動作をします
+        </description>
+    </item>
 </plugin>
-;
+; //}}}
 
 (function (self) {
+    let global = liberator.globalVariables;
+    const use_mapping  = has(global, "multiHintsMapping") ?  global.multiHintsMapping  === "true" : true;
+    const use_register = has(global, "multiHintsRegister") ? global.multiHintsRegister === "true" : true;
+
     let _hintModes = {
         follow: {
             desc: "follow link",
@@ -247,9 +257,41 @@ var INFO =
         }
     }, true);
 
-    mappings.addUserMap([modes.NORMAL, modes.CARET], ["<C-;>"], "multi hint", function () commandline.open(":", "multihints ", modes.EX));
+    if (use_mapping) //{{{
+        mappings.addUserMap([modes.NORMAL, modes.CARET], ["<C-;>"], "multi hint",
+        function (arg) {
+            let space = " ";
+            if (!has(_hintModes, arg)) {
+                let names = [attr for(attr in _hintModes) if (attr.indexOf(arg) === 0)];
+                if (arg === "<Tab>") {
+                    commandline.input("mh:", function (arg) {
+                        commandline.open(":", "multihints " + arg + " ", modes.EX)
+                    },
+                    {
+                        completer: function (context) {
+                            context.completions = [[name, e.desc] for([name, e] in Iterator(_hintModes))];
+                        }
+                    });
+                    return;
+                }
+                else if (names.length === 1)
+                    arg = names[0];
+                else if(names.length)
+                    space = "";
+                else {
+                    liberator.echoerr("no action");
+                    return;
+                }
+            }
+            commandline.open(":", "multihints " + arg + space, modes.EX)
+        },
+        {
+            arg: true
+        });
+    //}}}
 
-    if (Register) {
+    if (Register && use_register) //{{{
+    {
         const prompt = "builder.select.node";
         Register.add("q", function () {
             Register.inputEx({
@@ -309,5 +351,5 @@ var INFO =
                 }
             });
         });
-    }
+    }//}}}
 })(this);
