@@ -1,6 +1,6 @@
 // vim:set sw=4 ts=4 fdm=marker:
 var INFO = //{{{
-<plugin name="reload image" version="0.0.1"
+<plugin name="reload-image" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/reload-image.js"
         summary="reload image"
         xmlns="http://vimperator.org/namespaces/liberator">
