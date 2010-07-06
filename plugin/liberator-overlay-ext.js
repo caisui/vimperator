@@ -93,13 +93,13 @@
 
     const url = iframe.getAttribute("src");
     const onclick = iframe.getAttribute("onclick");
-    iframe = document.createElementNS(XHTML,"iframe");
+    iframe = document.createElement("iframe");
     iframe.setAttribute("id", id);
     iframe.setAttribute("style", iframeStyle);
     iframe.setAttribute("flex",1);
     iframe.setAttribute("onclick", <>
       var e = liberator.focus;
-      if(e.ownerDocument === this.contentDocument) e.blur();
+      if(e {"&&"} e.ownerDocument === this.contentDocument) e.blur();
       {onclick};
     </>);
 
