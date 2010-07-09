@@ -1,4 +1,37 @@
 // vim: set fdm=marker et:
+var INFO = //{{{
+<plugin name="liberator-overlay-ext" version="0.0.1"
+        href="http://github.com/caisui/vimperator/blob/master/plugin/reload-image.js"
+        summary="liberator overlay"
+        xmlns="http://vimperator.org/namespaces/liberator">
+    <author href="http://d.hatena.ne.jp/caisui">caisui</author>
+    <license href="http://www.opensource.org/licenses/bsd-license.php">New BSD License</license>
+    <project name="Vimperator" minVersion="2.0"/>
+    <item>
+        <description>
+            <p>
+                liberator.echo と completer の 表示方法を変更します。
+
+                また、表示用panel には、userStyle Sheet で 利用できるよう class 属性 に "liberator-overlay-container"が 付与しています。
+            </p>
+        </description>
+    </item>
+    <item>
+      <tags> g:overlayStyle </tags>
+      <spec> let g:overlayStyle </spec>
+      <description>
+        panel の style を設定
+      </description>
+    </item>
+    <item>
+      <tags> g:overlayIframeStyle </tags>
+      <spec> let g:overlayIframeStyle </spec>
+      <description>
+        表示用 iframe の style を設定
+      </description>
+    </item>
+</plugin>
+; //}}}
 (function(){
   const PANEL_MODE={
     MULTILINE : 1,
@@ -158,15 +191,15 @@
       fbox.addEventListener("popupshown", function () {
         commandline.updateMorePrompt();
       }, false);
-      //let timer = 0;
-      //iframe.addEventListener("resize", function (event) {
-      //  timer && window.clearTimeout(timer);
-      //  timer = window.setTimeout(function () {
-      //    timer = 0;
-      //    commandline.updateOutputHeight();
-      //    commandline.updateMorePrompt();
-      //  }, 200);
-      //}, false);
+      let timer = 0;
+      iframe.addEventListener("resize", function (event) {
+        timer && window.clearTimeout(timer);
+        timer = window.setTimeout(function () {
+          timer = 0;
+          commandline.updateOutputHeight();
+          commandline.updateMorePrompt();
+        }, 200);
+      }, false);
     });
   if(pMode&PANEL_MODE.COMPLETE)
     OverlayPanel("liberator-completions",function(id,fbox,vbox,iframe){
