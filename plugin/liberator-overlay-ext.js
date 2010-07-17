@@ -133,7 +133,7 @@ var INFO = //{{{
     iframe.setAttribute("onclick", <>
       var e = liberator.focus;
       if(e {"&&"} e.ownerDocument === this.contentDocument) e.blur();
-      {onclick};
+      if(e instanceof HTMLAnchorElement) {onclick};
     </>);
 
     vbox.appendChild(iframe);
@@ -149,7 +149,7 @@ var INFO = //{{{
         activeTimer = window.setTimeout(function(){
           activeTimer = 0;
           fbox.sizeTo(window.innerWidth, -1);
-          fbox.openPopup(document.getElementById(sid), "before_start", 0, 0, false, false);
+          fbox.openPopup(document.getElementById(sid), "before_start", 0, -12, false, false);
         },0);
       }
       }catch(ex){liberator.echoerr(ex);}
