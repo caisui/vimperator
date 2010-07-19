@@ -133,7 +133,7 @@ var INFO = //{{{
     iframe.setAttribute("onclick", <>
       var e = liberator.focus;
       if(e {"&&"} e.ownerDocument === this.contentDocument) e.blur();
-      if(e instanceof HTMLAnchorElement) {onclick};
+      if(event.target instanceof HTMLAnchorElement) {onclick};
     </>);
 
     vbox.appendChild(iframe);
