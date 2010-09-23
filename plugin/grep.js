@@ -1,5 +1,5 @@
 // vim: set fdm=marker et sw=4 ts=4:
-(function(){
+(function() {
     //{{{ config
     const cmd_name = ["grep"];
     const match_style = "color:red;font-weight:bold;";
@@ -11,81 +11,81 @@
     const option_scroll = "grep_scroll_position";
     const option_grep = "grep_option";
     const option_highlight = "hlgrep";
-  const scope = Option.SCOPE_GLOBAL || options.OPTION_SCOPE_GLOBAL;
+    const scope = Option.SCOPE_GLOBAL || options.OPTION_SCOPE_GLOBAL;
 
     //{{{ options
 
-    (function(){
+    (function() {
         function options_remove(name) {
             if (!options.get || options.get(name))
                 options.remove(name);
         }
 
         const position_list = {
-            "top": [0, -1],
-            "center": [50, -1],
-            "bottom": [100, -1],
-            "auto"  : [-1, -1],
+            "top"    : [0   , -1], 
+            "center" : [50  , -1], 
+            "bottom" : [100 , -1], 
+            "auto"   : [-1  , -1], 
         };
 
-        const grep_groups={
-            "engine":{
+        const grep_groups= {
+            "engine": {
                 n: "normal search",
                 r: "regex search",
                 x: "xul/migemo search",
             },
-            "flags":{
+            "flags": {
                 i: "ignore case",
                 m: "multiple lines",
             },
         };
         options_remove(option_scroll);
-        options.add([option_scroll],"grep scroll postion",
-        "string","center",
+        options.add([option_scroll], "grep scroll postion",
+        "string", "center",
         {
             scope: scope,
-            completer:function(context){
-                context.completions = ([[x,""] for(x in position_list)]);
+            completer:function(context) {
+                context.completions = ([[x, ""] for (x in position_list)]);
             },
             validator:Option.validateCompleter,
         });
-        options.get(option_scroll).__defineGetter__("vhPercent",function() position_list[this.value]||[-1,-1]);
+        options.get(option_scroll).__defineGetter__("vhPercent", function() position_list[this.value]||[-1, -1]);
 
         options_remove(option_grep);
         options.add([option_grep], "grep option",
         "charlist", "imx",
         {
             scope: scope,
-            setter:function(value){
+            setter:function(value) {
                 let list = [];
-                for(let [,c] in Iterator(value||[])){
-                    if(list.indexOf(c)===-1) list.push(c);
+                for (let [, c] in Iterator(value||[])) {
+                    if (list.indexOf(c)===-1) list.push(c);
                 }
                 return list.join("");
             },
-            completer:function(context){
-                for(let [grp_nm, grp_opt] in Iterator(grep_groups)){
-                    context.fork(grp_nm,0,this,function(context){
+            completer:function(context) {
+                for (let [grp_nm, grp_opt] in Iterator(grep_groups)) {
+                    context.fork(grp_nm, 0, this, function(context) {
                         context.title[0] = grp_nm;
-                        context.completions = [val for(val in Iterator(grp_opt))];
+                        context.completions = [val for (val in Iterator(grp_opt))];
                     });
                 }
             },
-            validator:function(val) Option.validateCompleter.call(this,val)
-                && [x for([x,] in grep_groups.engine)].some(function(n) val.indexOf(n) >= 0)
+            validator:function(val) Option.validateCompleter.call(this, val)
+                && [x for ([x, ] in grep_groups.engine)].some(function(n) val.indexOf(n) >= 0)
       ,
         });
 
         options_remove(option_highlight);
-        options.add([option_highlight],"grep highlight",
+        options.add([option_highlight], "grep highlight",
         "boolean", false,
         {
             scope: scope,
-            setter:function(value){
+            setter:function(value) {
 
-                if(value){
+                if (value) {
                     let info = get_cache();
-                    if(info) show_highlight(info.list);
+                    if (info) show_highlight(info.list);
                 }
                 else clear_highlight();
                 return value ? true : false;
@@ -101,11 +101,9 @@
 
     //{{{core
     const vimp = !liberator._class_ ? "liberator-completions" : "dactyl-completions";
-    let finder = Cc["@mozilla.org/embedcomp/rangefind;1"]
-        .getService(Ci.nsIFind);
+    let finder = Cc["@mozilla.org/embedcomp/rangefind;1"].getService(Ci.nsIFind);
     const option_list = "imxnr";
-  const gFm = Cc["@mozilla.org/focus-manager;1"]
-              .getService(Ci.nsIFocusManager);
+    const gFm = Cc["@mozilla.org/focus-manager;1"].getService(Ci.nsIFocusManager);
     //}}}
     //}}}
 
@@ -119,19 +117,19 @@
 
         return {
             abbr : so > max,
-            prev : (so > max ? st.substr(so - max, max) : st.substr(0, so)).replace(/\s+$/,"\xa0"),
+            prev : (so > max ? st.substr(so - max, max) : st.substr(0, so)).replace(/\s+$/, "\xa0"),
             text : r.toString(),
-            next : et.substr(eo, max*2).replace(/^\s+/,"\xa0"),
+            next : et.substr(eo, max*2).replace(/^\s+/, "\xa0"),
         };
     }
 
-    function get_word_max(){
+    function get_word_max() {
         let win = document.getElementById(vimp).contentWindow;
-        let fontSize = win.getComputedStyle(win.document.body,'').fontSize.replace("px","");
+        let fontSize = win.getComputedStyle(win.document.body, '').fontSize.replace("px", "");
         return Math.floor(document.width / fontSize);
     }
 
-    let process = [function(i,text){
+    let process = [function(i, text) {
         let r = range2string(i.item.range);
 
         return <><div style="position:absolute;">
@@ -144,14 +142,14 @@
     },
         function() <span></span>];
 
-    function iteratorFrame(win){
+    function iteratorFrame(win) {
         yield win;
-        for(let f1 in util.Array.itervalues(win.frames)){
-            for(let f2 in arguments.callee(f1)) yield f2;
+        for (let f1 in util.Array.itervalues(win.frames)) {
+            for (let f2 in arguments.callee(f1)) yield f2;
         }
     }
 
-    function create_ranges(win){
+    function create_ranges(win) {
         let doc = win.document;
         let body = doc.body;
         let count = body.childNodes.length;
@@ -170,12 +168,12 @@
         return [searchRange, startPt, endPt];
     }
 
-    function normal_find(win, word, option){
+    function normal_find(win, word, option) {
         let doc = win.document;
         let list = [];
-        let [whole,start,end] = create_ranges(win);
+        let [whole, start, end] = create_ranges(win);
 
-        while(result = finder.Find(word, whole, start, end)){
+        while(result = finder.Find(word, whole, start, end)) {
             list.push(result);
             start = doc.createRange();
             start.setStart(result.endContainer, result.endOffset);
@@ -184,10 +182,10 @@
         return list;
     }
 
-    function normal_grep(word, option){
-        let result,ret=[];
+    function normal_grep(word, option) {
+        let result, ret=[];
         finder.caseSensitive = !/i/.test(option);
-        for(let win in iteratorFrame(content.window)){
+        for (let win in iteratorFrame(content.window)) {
             let list = [];
             let words = word.split(" ");
 
@@ -195,29 +193,29 @@
             words = words.sort();
             let(prev) words = words.filter(function(n) prev !== (prev=n));
 
-            for(let [,w] in Iterator(words)){
+            for (let [, w] in Iterator(words)) {
                 list = list.concat(normal_find(win, w));
             }
-            list.sort(function(a,b) a.compareBoundaryPoints(Range.START_TOSTART, b));
+            list.sort(function(a, b) a.compareBoundaryPoints(Range.START_TOSTART, b));
             ret = ret.concat(list);
         }
         return ret;
     }
 
 //{{{
-    function regexp_grep_core(re){
-        let result,ret=[];
+    function regexp_grep_core(re) {
+        let result, ret=[];
         finder.caseSensitive = true;
-        for(let win in iteratorFrame(content.window)){
+        for (let win in iteratorFrame(content.window)) {
             let list = [];
-            let [whole,start,end] = create_ranges(win);
+            let [whole, start, end] = create_ranges(win);
             let words = whole.toString().match(re)||[];
 
             //unique
             words = words.sort();
             let(prev) words = words.filter(function(n) prev !== (prev=n));
 
-            for(let [,w] in Iterator(words)){
+            for (let [, w] in Iterator(words)) {
                 list = list.concat(normal_find(win, w));
             }
             list.sort(range_compare);
@@ -226,33 +224,33 @@
         return ret;
     }
 
-    function regexp_grep(word, option){
+    function regexp_grep(word, option) {
         return regexp_grep_core(RegExp(word, option));
     }
 
-    function migemo_grep(word, option){
+    function migemo_grep(word, option) {
         let re = new RegExp(window.migemo.query(word), option);
         return regexp_grep_core(re);
     }
     //}}}
 
-    function range_compare(a,b)
+    function range_compare(a, b)
         a.compareBoundaryPoints(Range.START_TO_START, b)
       || a.compareBoundaryPoints(Range.END_TO_END, b)
 
-    function range_compare_d(win){
+    function range_compare_d(win) {
     win = win || content.window;
-    let list = [w.document for(w in iteratorFrame(win))];
-    return function(a,b){
+    let list = [w.document for (w in iteratorFrame(win))];
+    return function(a, b) {
       let n1 = a.startContainer.ownerDocument;
       let n2 = b.startContainer.ownerDocument;
       let ret=0;
 
-      if(n1 === n2) return a.compareBoundaryPoints(Range.START_TO_START, b)
+      if (n1 === n2) return a.compareBoundaryPoints(Range.START_TO_START, b)
         || a.compareBoundaryPoints(Range.END_TO_END, b);
-      for(let [,n] in Iterator(list)){
-        if(n===n1) return -1;
-        else if(n===n2) return 1;
+      for (let [, n] in Iterator(list)) {
+        if (n===n1) return -1;
+        else if (n===n2) return 1;
       }
     };
   }
@@ -263,36 +261,36 @@
     mode_func.x = migemo_grep;
 
     //{{{ range cache
-    function get_cache(){
+    function get_cache() {
         return content.document[grep_info_attr];
     }
 
-    function clear_cache(event){
+    function clear_cache(event) {
         var br = event.currentTarget;
         br.contentWindow.document[grep_info_attr] = null;
         br.removeEventListener(event.type, arguments.callee, true);
     }
 
     function get_grep_info(arg) {
-        let m,word,flags,mode,num;
+        let m, word, flags, mode, num;
         let re = new RegExp(
         <>^((\d*)([{option_list}]*)/)?([^/]+)(/([{option_list}]*))?$</>.toString()
-        ,"i");
-        if(m=re.exec(arg)){
+        , "i");
+        if (m=re.exec(arg)) {
             let s = "";
             word = m[4];
             num = m[2]||0;
-            if(!m[1] && !m[5]){
+            if (!m[1] && !m[5]) {
                 s = options[option_grep];
-            }else if(m[6]){
+            } else if (m[6]) {
                 s = m[6];
-            }else if(m[3]){
+            } else if (m[3]) {
                 s = m[3];
             }
             flags = "";
-            if(/i/.test(s)) flags += "i";
-            if(/m/.test(s)) flags += "m";
-            if(m=/.+([xnr])/.exec(options[option_grep]+s)){
+            if (/i/.test(s)) flags += "i";
+            if (/m/.test(s)) flags += "m";
+            if (m=/.+([xnr])/.exec(options[option_grep]+s)) {
                 mode = m[1];
             }
         }
@@ -347,7 +345,7 @@
 
     function getEditor(node) {
         while(node) {
-            if(checkEditableElement(node)) {
+            if (checkEditableElement(node)) {
                 return node.editor;
             }
             node = node.parentNode;
@@ -365,9 +363,9 @@
     function clearEditorAllSelections(win, aType) {
         win = win || content.window;
         aType = aType || Ci.nsISelectionController.SELECTION_NORMAL;
-        for(let w in iteratorFrame(win)) {
+        for (let w in iteratorFrame(win)) {
             let list = w.document.getElementsByTagName("*");
-            for (let [,n] in Iterator(list)) {
+            for (let [, n] in Iterator(list)) {
                 if (checkEditableElement(n)) {
                     let editor = n.editor;
                     if (editor) {
@@ -383,22 +381,22 @@
 
     function grep_jump(info) {
         if (info.list.length == 0) {
-            liberator.echoerr(<>no match "{info.option}/{info.word}"</>.toString(),commandline.DISALLOW_MULTILINE);
+            liberator.echoerr(<>no match "{info.option}/{info.word}"</>.toString(), commandline.DISALLOW_MULTILINE);
             return;
         }
         let n = info.list[info.index];
         if (!n) {
-            liberator.echoerr(<>index error "{info.index}"</>.toString(),commandline.DISALLOW_MULTILINE);
+            liberator.echoerr(<>index error "{info.index}"</>.toString(), commandline.DISALLOW_MULTILINE);
             return;
         }
         let win = n.startContainer.ownerDocument.defaultView;
 
-        if(gFm.focusedWindow) {
-            if(use_clear_editor_range) clearEditorAllSelections();
+        if (gFm.focusedWindow) {
+            if (use_clear_editor_range) clearEditorAllSelections();
             gFm.focusedWindow.getSelection().removeAllRanges();
         }
         let selectionController = getSelectionControllerFromWindow(win);
-        if(!selectionController) return;
+        if (!selectionController) return;
 
         //{{{ editable element
         let editor = getEditor(n.startContainer);
@@ -426,12 +424,12 @@
         let(op=options.get(option_scroll).vhPercent)
         selection
             .QueryInterface(Ci.nsISelection2)
-            .scrollIntoView(Ci.nsISelectionController.SELECTION_ANCHOR_REGION,true,op[0],op[1]);
+            .scrollIntoView(Ci.nsISelectionController.SELECTION_ANCHOR_REGION, true, op[0], op[1]);
         win.focus();// nsIFocusManager の focusedWindow を 更新
 
-        if(use_show_echo){
+        if (use_show_echo) {
             range2string.max = get_word_max();
-            liberator.echo(process[0]({item:{range:n}},"").*,commandline.DISALLOW_MULTILINE);
+            liberator.echo(process[0]({item:{range:n}}, "").*, commandline.DISALLOW_MULTILINE);
         }
     }
 
@@ -447,7 +445,7 @@
             ret = comp(n, list[mid]);
             if (ret < 0) rhs = mid;
             else if (ret > 0) lhs = mid;
-            else{
+            else {
                 return backword ? mid - 1 : mid;
             }
         }
@@ -472,7 +470,7 @@
 
     function grep_next() {
         let info = get_cache();
-        if(!info) return;
+        if (!info) return;
         info.index = get_grep_list_index(info);
 
         let show_msg = false;
@@ -480,7 +478,7 @@
         if (++info.index >= info.list.length) {
             info.index = 0;
             window.setTimeout(function() {
-                liberator.echoerr("bottom!",commandline.DISALLOW_MULTILINE);
+                liberator.echoerr("bottom!", commandline.DISALLOW_MULTILINE);
             }, 100);
         }
         grep_jump(info);
@@ -488,11 +486,11 @@
         return true;
     }
 
-    function grep_prev(){
+    function grep_prev() {
         let info = get_cache();
-        if(!info) return;
+        if (!info) return;
         info.index = get_grep_list_index(info, true);
-        if(info.index < 0){
+        if (info.index < 0) {
             info.index = info.list.length - 1;
             window.setTimeout(function() {
                 liberator.echoerr("top!", commandline.DISALLOW_MULTILINE);
@@ -505,33 +503,33 @@
     //}}}
 
   //{{{ highlight
-  function show_highlight(list){
-    for(let [,r] in Iterator(list)){
-      let selectionController,n;
+  function show_highlight(list) {
+    for (let [, r] in Iterator(list)) {
+      let selectionController, n;
             n = r.startContainer;
             let editor = getEditor(n);
             selectionController = editor
                 ? editor.selectionController
                 : getSelectionControllerFromWindow(n.ownerDocument.defaultView);
 
-            if(selectionController){
+            if (selectionController) {
         let selection = selectionController.getSelection(Ci.nsISelectionController.SELECTION_FIND);
                 selection.addRange(r);
             }
     }
   }
 
-  function clear_selection_find(win){
+  function clear_selection_find(win) {
     win = win||content.window;
         let selectionController = getSelectionControllerFromWindow(win);
-        if(selectionController){
+        if (selectionController) {
             let selection = selectionController.getSelection(Ci.nsISelectionController.SELECTION_FIND);
             selection.removeAllRanges();
         }
   }
 
-  function clear_highlight(){
-    for(let w in iteratorFrame(content.window)){
+  function clear_highlight() {
+    for (let w in iteratorFrame(content.window)) {
       clear_selection_find(w);
     }
         clearEditorAllSelections(null, Ci.nsISelectionController.SELECTION_FIND);
@@ -544,7 +542,7 @@
         action: function (args) {
             let info = get_grep_info(args[0]);
             if (info) {
-                if(options[option_highlight]) {
+                if (options[option_highlight]) {
                     clear_highlight();
                     show_highlight(info.list);
                 }
@@ -558,16 +556,16 @@
     T.option.completer = function (context, args) {
         try {
             let info = get_grep_info(args[0]);
-            if(!info || info.list.length == 0) return;
+            if (!info || info.list.length == 0) return;
 
             context.process = process;
             context.keys= {text: "text", description:"text"};
-            context.match = function(str){ return true; };
+            context.match = function(str) { return true; };
 
             range2string.max = get_word_max();
 
             let query = info.query;
-            context.completions = info.list.map(function(n,i) {
+            context.completions = info.list.map(function(n, i) {
                 return {
                     text: <>{i}{info.option}/{info.word}</>.toString(),
                     range: n
@@ -577,41 +575,41 @@
     };
     commands.addUserCommand(T.name, T.desc, T.action, T.option, true);
 
-    if(use_hook_search_map)//{{{
+    if (use_hook_search_map)//{{{
     {
-        function hook_function(obj, attr, func){
+        function hook_function(obj, attr, func) {
             const org = "__original";
             let original = obj[attr];
-            if(org in original) original = original[org];
-            let ret=function(){
-                if(!(func.apply(this,arguments)===true)){
-                    original.apply(this,arguments);
+            if (org in original) original = original[org];
+            let ret=function() {
+                if (!(func.apply(this, arguments)===true)) {
+                    original.apply(this, arguments);
                 }
             };
             ret[org] = original;
             obj[attr] = ret;
         }
 
-        map = mappings.get(modes.NORMAL,"/");
-        hook_function(map, "action", function(){
+        map = mappings.get(modes.NORMAL, "/");
+        hook_function(map, "action", function() {
             let info = get_cache();
-            if(info) info.enabled = false;
+            if (info) info.enabled = false;
         });
-        map = mappings.get(modes.NORMAL,"n");
-        hook_function(map, "action", function(){
-            if(grep_info_attr in content.document){
+        map = mappings.get(modes.NORMAL, "n");
+        hook_function(map, "action", function() {
+            if (grep_info_attr in content.document) {
                 let info = get_cache();
-                if(info&&info.enabled){
+                if (info&&info.enabled) {
                     grep_next();
                     return true;
                 }
             }
         });
-        map = mappings.get(modes.NORMAL,"N");
-        hook_function(map, "action", function(){
-            if(grep_info_attr in content.document){
+        map = mappings.get(modes.NORMAL, "N");
+        hook_function(map, "action", function() {
+            if (grep_info_attr in content.document) {
                 let info = get_cache();
-                if(info&&info.enabled){
+                if (info&&info.enabled) {
                     grep_prev();
                     return true;
                 }
