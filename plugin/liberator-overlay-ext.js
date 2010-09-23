@@ -33,6 +33,7 @@ var INFO = //{{{
 </plugin>
 ; //}}}
 (function(){
+  const isVimp = liberator._class_ ? false : true;
   const PANEL_MODE={
     MULTILINE : 1,
     COMPLETE  : 2,
@@ -44,9 +45,14 @@ var INFO = //{{{
 
   const minHeight = "1em";
   const delayResize = 100;
-
-  const sid = "liberator-statusline";
-  const className = "liberator-overlay-container";
+  const res = {
+      sid:       isVimp ? "liberator-statusline"               : "dactyl-statusline-field-status",
+      className: isVimp ? "liberator-overlay-container"        : "dactyl-overlay-container",
+      eval:      isVimp ? "eval"                               : "usereval",
+      mow:       isVimp ? "liberator-multiline-output"         : "dactyl-multiline-output",
+      mowBody:   isVimp ? "liberator-multiline-output-content" : "dactyl-multiline-output-content",
+      comp:      isVimp ? "liberator-completions"              : "dactyl-completions"
+  };
 
   //{{{ style sheet
   const fboxStyle = liberator.globalVariables.overlayStyle
@@ -74,14 +80,14 @@ var INFO = //{{{
   //}}}
 
   CommandLine.prototype.__defineGetter__("_maxHeight", function () {
-    let rect = document.getElementById(sid).getBoundingClientRect();
+    let rect = document.getElementById(res.sid).getBoundingClientRect();
     let screen = window.screen;
     let height = window.screenY + rect.top + window.outerHeight - window.innerHeight;
     return Math.max(height, screen.height - height) - rect.height;
   });
 
   function patch(obj, attr, func) {
-    obj[attr] = liberator.eval("(function ()" + func(obj[attr]) + ")()", obj[attr]);
+    obj[attr] = liberator[res.eval]("(function ()" + func(obj[attr]) + ")()", obj[attr]);
   }
 
   patch(CommandLine.prototype, "updateOutputHeight", function (func) {
@@ -89,11 +95,13 @@ var INFO = //{{{
     code[10] = <>this._outputContainer.height = Math.min(doc.height, availableHeight, commandline._maxHeight);</>;
     return code.join("");
   });
-  patch(ItemList.prototype, "_autoSize", function (func) {
-    let code = func.toString().split("\n");
-    code[4] = <>this._minHeight = Math.min(commandline._maxHeight, Math.max(this._minHeight, this._divNodes.completions.getBoundingClientRect().bottom));</>;
-    return code.join("");
-  });
+  if (isVimp) {
+    patch(ItemList.prototype, "_autoSize", function (func) {
+      let code = func.toString().split("\n");
+      code[4] = <>this._minHeight = Math.min(commandline._maxHeight, Math.max(this._minHeight, this._divNodes.completions.getBoundingClientRect().bottom));</>;
+      return code.join("");
+    });
+  }
 
   function oneEventListenr(obj, event, usecapture, func){
     let args = [event, function(){
@@ -108,13 +116,13 @@ var INFO = //{{{
     let vbox = iframe.parentNode;
     let fbox;
 
-    if(standard) fbox = document.querySelector(<>.{className}</>);
+    if(standard) fbox = document.querySelector(<>.{res.className}</>);
     if(!fbox){
       fbox = document.createElement("panel");
 
       fbox.setAttribute("noautohide", true);
       fbox.setAttribute("style", fboxStyle);
-      fbox.classList.add(className);
+      fbox.classList.add(res.className);
       fbox.addEventListener("popupshown", function(){
         modes.remove(modes.MENU);
       },false);
@@ -149,7 +157,7 @@ var INFO = //{{{
         activeTimer = window.setTimeout(function(){
           activeTimer = 0;
           fbox.sizeTo(window.innerWidth, -1);
-          fbox.openPopup(document.getElementById(sid), "before_start", 0, -12, false, false);
+          fbox.openPopup(document.getElementById(res.sid), "before_start", 0, -12, false, false);
         },0);
       }
       }catch(ex){liberator.echoerr(ex);}
@@ -183,10 +191,14 @@ var INFO = //{{{
   }
 
   if(pMode&PANEL_MODE.MULTILINE)
-    OverlayPanel("liberator-multiline-output",function(id,fbox,vbox,iframe){
-      commandline._multilineOutputWidget = iframe;
+    OverlayPanel(res.mow, function(id,fbox,vbox,iframe){
+      if (isVimp) {
+        commandline._multilineOutputWidget = iframe;
+      } else {
+        commandline.widgets.multilineOutput = iframe;
+      }
       commandline._outputContainer = vbox;
-      iframe.contentDocument.body.setAttribute("id", "liberator-multiline-output-content");
+      iframe.contentDocument.body.setAttribute("id", res.mowBody);
 
       fbox.addEventListener("popupshown", function () {
         commandline.updateMorePrompt();
@@ -202,7 +214,7 @@ var INFO = //{{{
       }, false);
     });
   if(pMode&PANEL_MODE.COMPLETE)
-    OverlayPanel("liberator-completions",function(id,fbox,vbox,iframe){
+    OverlayPanel(res.comp, function(id,fbox,vbox,iframe){
       commandline._completionList = ItemList(id);
     });
 })(this);
