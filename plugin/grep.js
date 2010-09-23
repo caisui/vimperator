@@ -16,6 +16,11 @@
     //{{{ options
 
     (function(){
+        function options_remove(name) {
+            if (!options.get || options.get(name))
+                options.remove(name);
+        }
+
         const position_list = {
             "top": [0, -1],
             "center": [50, -1],
@@ -34,7 +39,7 @@
                 m: "multiple lines",
             },
         };
-        options.remove(option_scroll);
+        options_remove(option_scroll);
         options.add([option_scroll],"grep scroll postion",
         "string","center",
         {
@@ -46,7 +51,7 @@
         });
         options.get(option_scroll).__defineGetter__("vhPercent",function() position_list[this.value]||[-1,-1]);
 
-        options.remove(option_grep);
+        options_remove(option_grep);
         options.add([option_grep], "grep option",
         "charlist", "imx",
         {
@@ -71,7 +76,7 @@
       ,
         });
 
-        options.remove(option_highlight);
+        options_remove(option_highlight);
         options.add([option_highlight],"grep highlight",
         "boolean", false,
         {
@@ -95,7 +100,7 @@
     //}}}
 
     //{{{core
-    const vimp = "liberator-completions";
+    const vimp = !liberator._class_ ? "liberator-completions" : "dactyl-completions";
     let finder = Cc["@mozilla.org/embedcomp/rangefind;1"]
         .getService(Ci.nsIFind);
     const option_list = "imxnr";
