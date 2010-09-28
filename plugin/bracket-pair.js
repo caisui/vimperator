@@ -45,39 +45,112 @@ var INFO = //{{{
         "}": "{",
         "]": "[",
     };
-    const matchTargets = /[(){}\[\]"']/;
+    const matchTargets = /[(){}\[\]"'\/]/;
     const re_highlight = /^(js|javascript|echo)/;
 
-    function getMatchPairMain(expression, index) {
-        const chars = "(){}\\[\\]\\\"'";
-        const re = new RegExp(<>([{chars}])(\s*)([^{chars}]*)</>, "g");
+    function getMatchRegExp(expression, start, index) //{{{
+    {
+        const re1 = /((?:[^\\(){}\[\]\/]|\\.)*)([(){}\[\]\/])/yg;
+        const re2 = /(?:[^\\\]]|\\.)*\]/yg;
+        const re3 = /((?:[^\\\}]|\\.)*)\}/yg;
+        let m, c, mm;
+        let stack = [];
+        let isStart = start == index;
+        if(isStart) {
+            index = expression.length;
+        }
+        re1.lastIndex = start;
+        while (m = re1.exec(expression)) {
+            switch (c = m[2]) {
+            case "/":
+                if (isStart)
+                    return {index: re1.lastIndex, valid: true};
+                if (re1.lastIndex == index)
+                    return {index: start, valid: true};
+                else {
+                    return {index: re1.lastIndex, valid: stack.length == 0, next: true};
+                } break;
+            case "(":
+                let (goal = re1.lastIndex == index) {
+                    stack.push({index: re1.lastIndex, goal: goal});
+                    if (goal) index = expression.length;
+                }
+                break;
+            case ")": {
+                if (stack.length == 0) {
+                    return {index: start, valid: false};
+                }
+                let b = stack.pop();
+                
+                if (b.goal)
+                    return {index: re1.lastIndex, valid: true};
+                else if (re1.lastIndex == index)
+                    return {index: b.index, valid: true};
+                } break;
+            case "[":
+                re2.lastIndex = re1.lastIndex;
+                mm = re2.exec(expression);
+                if (mm) {
+                    if (re1.lastIndex == index)
+                        return {index: re2.lastIndex, valid: true};
+                    else if (re2.lastIndex == index)
+                        return {index: re1.lastIndex, valid: true};
+                    re1.lastIndex = re2.lastIndex;
+                } else return;
+                break;
+            case "{":
+                re3.lastIndex = re1.lastIndex;;
+                mm = re3.exec(expression);
+                if (mm) {
+                    let valid = let(c=mm[1])
+                        /\d/.test(c) && /^\d*,?\d*$/.test(c.replace(/\s/g,""));
+                    if (re1.lastIndex == index)
+                        return {index: re3.lastIndex, valid: valid};
+                    else if (re3.lastIndex == index)
+                        return {index: re1.lastIndex, valid: valid};
+                    re1.lastIndex = re3.lastIndex;
+                }
+                break;
+            case "]":
+            case "}":
+                return {index: stack.length ? stack.pop().index : start, valid: false};
+            }
+            if (re1.lastIndex > index) break;
+        }
+    } //}}}
+
+
+    function getMatchPairMain(expression, index, start) //{{{
+    {
+        const re = /(?:[^"'(){}\[\]\/\\]|\\.)*(["'(){}\[\]\/])/gy;
         const reStr1 = /((?:[^"\\]|\\.)*)(")/gy;
         const reStr2 = /((?:[^'\\]|\\.)*)(')/gy;
 
-        let m;
+        let m, c;
         let stack = [];
         let isString = false;
+        re.lastIndex = start || 0;
+
         while (m = re.exec(expression)) {
-            switch (m[1]) {
+            switch (c = m[1]) {
             case "(":
             case "{":
             case "[":
-                stack.push({c: m[1], index: m.index});
-                if (m.index == index) {
+                stack.push({c: c, index: re.lastIndex});
+                if (re.lastIndex == index) {
                     index= expression.length;
                     stack[stack.length - 1].goal = true;
-                }
-                break;
+                } break;
             case ")":
             case "}":
             case "]":
                 if (stack.length == 0) {
-                    return {index: 0, valid: false};
+                    return {index: 1, valid: false};
                 } else {
                     let b = stack.pop();
                     if (b.goal) {
-                        return {index: m.index, valid: b.c == close2open[m[1]]};
-                    } else if (m.index == index) {
+                        return {index: re.lastIndex, valid: b.c == close2open[m[1]]};
+                    } else if (re.lastIndex == index) {
                         return {index: b.index, valid: b.c == close2open[m[1]]};
                     }
                 }
@@ -86,80 +159,62 @@ var INFO = //{{{
             case "'": {
                 let re1 = m[1] == '"' ? reStr1 :reStr2;
 
-                re1.lastIndex = m.index + 1;
+                re1.lastIndex = re.lastIndex;
                 let m1 = re1.exec(expression);
                 if (!m1) return null;
 
-                if (index == m.index) {
-                    return {index: re1.lastIndex - 1, valid: true};
-                } else if (index == re1.lastIndex - 1) {
-                    return {index: m1.index - 1, valid: true};
+                if (index == re1.lastIndex) {
+                    return {index: re.lastIndex, valid: true};
+                } else if (index == re.lastIndex) {
+                    return {index: re1.lastIndex, valid: true};
                 }
                 re.lastIndex = re1.lastIndex;
+                } break;
+            case "/": {
+                if (expression[re.lastIndex] == " ") break;
+                else if (expression[re.lastIndex] == "*") {
+                    let re_c = /.*\*\//gy;
+                    re_c.lastIndex = re.lastIndex;
+                    let m1 = re_c.exec(expression);
+                    if (m1) {
+                        if (re_c.lastIndex == index)
+                            return {index:re.lastIndex, valid: true};
+                        else if (re.lastIndex == index)
+                            return {index:re_c.lastIndex, valid: true};
+                        else
+                            re.lastIndex = re_c.lastIndex;
+                        break;
+                    } else return;
+                }
+                let ret = getMatchRegExp(expression, re.lastIndex, index);
+                if (!ret) return;
+                else if (ret.next)
+                    re.lastIndex = ret.index;
+                else return ret;
                 } break;
             }
             if (re.lastIndex > index) break;
         }
-    }
-
-    function event_keyup(evt) {
-        const inputField = commandline._commandWidget.inputField;
-        const editor = inputField.editor;
-        const selectionController = editor.selectionController;
-        const aFind = selectionController.getSelection(Ci.nsISelectionController.SELECTION_FIND);
-        const aSpell = selectionController.getSelection(Ci.nsISelectionController.SELECTION_SPELLCHECK);
-
-        aFind.removeAllRanges();
-        aSpell.removeAllRanges();
-
-        let i = inputField.selectionEnd - 1;
-        let c = inputField.value.substr(i, 1);
-
-        if (matchTargets.test(c)) {
-            let ret, aType;
-            ret = searchOpenBracket(inputField.value, i);
-
-            if (!ret) return;
-            let doc = editor.document;
-            let range = doc.createRange();
-            let elem = editor.rootElement.childNodes[0];
-
-            range.setStart(elem, ret.index);
-            range.setEnd(elem, ret.index + 1);
-            aFind.addRange(range);
-
-            range = doc.createRange();
-            range.setStart(elem, i);
-            range.setEnd(elem, i + 1);
-            aFind.addRange(range);
-
-            if (!ret.valid) {
-                let range = doc.createRange();
-                if (ret.index > i) [i, ret.index] = [ret.index, i];
-                range.setStart(elem, ret.index);
-                range.setEnd(elem, i);
-
-                aSpell.addRange(range);
-            }
-        }
-    }
+    } //}}}
 
     self.core = {
         getMatchPair: function _getMatchPair(inputField) {
-            let i = inputField.selectionEnd - 1;
-            let c = inputField.value.substr(i, 1);
-            if (!matchTargets.test(c)) return [];
+            let i = inputField.selectionEnd;
+            let c = inputField.value.substr(i - 1, 1);
 
-            return [getMatchPairMain(inputField.value, i), i, c];
+            if (i == 0 || !matchTargets.test(c)) return [];
+
+            let ret = getMatchPairMain(inputField.value, i);
+            return [ret, i, c];
         },
         jumpToMatchItem: function jumpToMatchItem(inputField) {
             let [inf] = this.getMatchPair(inputField);
             if (inf) {
                 if (inputField.selectionStart == inputField.selectionEnd) {
-                    inputField.selectionEnd = inputField.selectionStart = inf.index + 1;
+                    inputField.selectionEnd = inputField.selectionStart = inf.index;
                 } else {
                     //todo: 選択範囲がある場合は、selectionStart を起点に選択範囲を更新できるようにする
-                    inputField.selectionEnd = inputField.selectionStart = inf.index + 1;
+                    inputField.selectionEnd = inputField.selectionStart = inf.index;
                 }
             }
         },
@@ -181,8 +236,8 @@ var INFO = //{{{
             let range = doc.createRange();
             let text = editor.rootElement.childNodes[0];
 
-            range.setStart(text, inf.index);
-            range.setEnd(text, inf.index + 1);
+            range.setStart(text, inf.index - 1);
+            range.setEnd(text, inf.index);
             aFind.addRange(range);
 
             if (liberator.globalVariables.show_cursor_bracket) {
@@ -209,16 +264,18 @@ var INFO = //{{{
         this.core.highlight(Editor.getEditor());
     };
 
-    let(inputField = commandline._commandWidget.inputField) {
-        const cache_key = "@cache-bracket-pair";
-        const eventName = "keyup";
-        userContext[cache_key] && inputField.removeEventListener(eventName, userContext[cache_key], false);
-        userContext[cache_key] = function() {
+    function setup() {
+        let inputField = commandline._commandWidget.inputField;
+        function check() {
             let text = Editor.getEditor().value;
             if (re_highlight.test(text))
                 self.show_highlight();
         }
-        inputField.addEventListener("keyup", userContext[cache_key], false);
+        inputField.addEventListener("keyup", check, false);
+        self.onUnload = function () {
+            inputField.removeEventListener("keyup", check, false);
+        };
+        mappings.addUserMap([modes.COMMAND_LINE], ["<C-5>"], "", function() self.jumpToMatchItem());
     }
-    mappings.addUserMap([modes.COMMAND_LINE], ["<C-5>"], "", function() self.jumpToMatchItem());
+    setup();
 })(this);
