@@ -102,7 +102,7 @@ var INFO = //{{{
                 re3.lastIndex = re1.lastIndex;;
                 mm = re3.exec(expression);
                 if (mm) {
-                    let valid = let(c=mm[1])
+                    let valid = let(c = mm[1])
                         /\d/.test(c) && /^\d*,?\d*$/.test(c.replace(/\s/g,""));
                     if (re1.lastIndex == index)
                         return {index: re3.lastIndex, valid: valid};
@@ -138,7 +138,7 @@ var INFO = //{{{
             case "[":
                 stack.push({c: c, index: re.lastIndex});
                 if (re.lastIndex == index) {
-                    index= expression.length;
+                    index = expression.length + 1;
                     stack[stack.length - 1].goal = true;
                 } break;
             case ")":
