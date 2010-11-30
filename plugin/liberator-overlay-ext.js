@@ -156,7 +156,7 @@ var INFO = //{{{
                 activeTimer = window.setTimeout(function() {
                     activeTimer = 0;
                     fbox.sizeTo(window.innerWidth, -1);
-                    fbox.openPopup(document.getElementById(res.sid), "before_start", 0, -12, false, false);
+                    fbox.openPopup(document.getElementById(res.sid), "before_start", 0, 0, false, false);
                 }, 0);
             }
             }catch(ex) {liberator.echoerr(ex);}
