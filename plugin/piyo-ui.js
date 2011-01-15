@@ -728,7 +728,7 @@ let onUnload = (function () // {{{
     [ // mapping PIYO_I
         [["<C-n>"], "down", function () ui.scroll( 1, true)],
         [["<C-p>"], "up", function () ui.scroll(-1, true)],
-        [["<Esc>"], "escape PIYO_I", function () modes.set(modes.PIYO)],
+        [["<Esc>", "<Return>"], "escape PIYO_I", function () modes.set(modes.PIYO)],
         [["<C-Return>"], "execute", function () { ui.execute(); }],
     ].forEach(function (m) {
         mappings.remove(modes.PIYO_I, m[0][0]);
