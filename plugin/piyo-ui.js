@@ -149,7 +149,7 @@ let PiyoUI = Class("PiyoUI", //{{{
                 background: -moz-linear-gradient(19% 75% 90deg, #DBDBDB, #D9D9D9, #E7E7E7 100%);
                 padding: 0.5ex;
             }
-        ]]>, //}}}
+        ]]> + (liberator.globalVariables.piyo_style || ""), //}}}
     open: function (source, input, modifiers) {
         if (!modifiers) modifiers = {};
         if ([modes.PIYO, modes.PIYO_I].indexOf(liberator.mode) < 0)
@@ -428,7 +428,6 @@ let PiyoSource = Class("PiyoSource", //{{{
                 });
                 return val;
             };
-        let filter = filter;
         // required [{pos,len},...]
         let matchers = filter.split(" ")
             .map(this.matcher || util.regexpMatcher);
@@ -445,7 +444,7 @@ let PiyoSource = Class("PiyoSource", //{{{
 
                 function keyValueEach(index) {
                     let key = keys[index];
-                    for (let [, val] in Iterator(Array.concat(item[key]))) {
+                    for (let [, val] in Iterator(Array.concat(item[key] || ""))) {
                         ret[key] = val;
                         yield 1;
                     }
@@ -470,7 +469,6 @@ let PiyoSource = Class("PiyoSource", //{{{
             }
             for (let val in iterWords(item, keys)) {
                 let ret = keys.reduce(function (r, v) {r[v] = []; return r;}, {});
-                for (let attr in val) ret[attr] = [];
                 let isMatch = !matchers.some(function (matcher) {
                     let isMatch = false;
                     for (let [attr, text] in Iterator(val)) {
@@ -685,7 +683,10 @@ let onUnload = (function () // {{{
         [["<Esc>"], "", function () {
             ui.quit();
         }],
-        [["i"], "piyo insert mode", function () { commandline.show(); }],
+        [["i"], "piyo insert mode", function () {
+            modes.set(modes.PIYO_I, modes.NONE, true);
+            commandline.show();
+        }],
         [["<Space>"], "mark mark", function () {
             ui.selectedItem.toggleMark();
             ui.scroll(1, true);
@@ -796,6 +797,23 @@ let util = {
             return list;
         };
     },
+    createView: function (array, scope) {
+        if (array.length === 0) return <></>;
+        if (array[0] === "icon") {
+        }
+        array = array.map(function (a) {
+            if (typeof(a) === "string") return "<td>{" + a + "}</td>";
+            else {
+                let text = a.text;
+                delete a.text;
+                let attrs = [];
+                for (let attr in a) attrs.push(attr + '=\"' + a[attr].replace('"', '\\"', "g") + '"');
+                return "<td " + attrs.join(" ") + ">{" + text + "}</td>";
+            }
+        });
+        return liberator.eval(<![CDATA[(function () function (item, hi) xml)()]]>
+            .toString().replace("xml", "<tr>" + array.join("") + "</tr>"), scope);
+    }
 };
 
 commands.addUserCommand(["piyo"], "piyo command", function (args) {
@@ -820,3 +838,5 @@ commands.addUserCommand(["loadpiyo"], "piyo load plugin", function (args) {
 }, true);
 
 ui.loadPiyos();
+
+plugins[this.NAME] = this;
