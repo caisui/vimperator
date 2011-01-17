@@ -151,7 +151,7 @@
 
     function create_ranges(win) {
         let doc = win.document;
-        let body = doc.body;
+        let body = doc.body || doc.querySelector("body");
         let count = body.childNodes.length;
 
         let searchRange = doc.createRange();
