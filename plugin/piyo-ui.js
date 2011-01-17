@@ -838,5 +838,3 @@ commands.addUserCommand(["loadpiyo"], "piyo load plugin", function (args) {
 }, true);
 
 ui.loadPiyos();
-
-plugins[this.NAME] = this;
