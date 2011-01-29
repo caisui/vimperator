@@ -32,6 +32,7 @@ var INFO = //{{{
             position: fixed;
             width: 100%;
             max-height: 80%;
+            min-height: 10px;
         }
         .liberator-overlay > iframe {
             height: 100%;
@@ -53,9 +54,9 @@ var INFO = //{{{
     }
     function watchCollapsed(id, oldVal, newVal) {
         if (newVal === true) {
-            this.style.height = "0px";
+            this.style.height = "1px";
         } else {
-            let e = document.getElementById("addon-bar") || document.getElementById("status-bar");
+            let e = document.getElementById("liberator-bottombar") || document.getElementById("status-bar");
             this.style.bottom = (document.documentElement.boxObject.height - e.boxObject.y) + "px";
         }
         return newVal;
@@ -85,5 +86,6 @@ var INFO = //{{{
         document.documentElement.removeChild(style);
         unwatchEvent(liberatorCompletions);
         unwatchEvent(liberatorMultilineOutput);
+        delete self.onUnload;
     }
 })(this);
