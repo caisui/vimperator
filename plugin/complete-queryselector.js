@@ -221,6 +221,7 @@ function complete(context, obj) {
             val.push(node.getAttribute(extra));
         }
         context.fork("value", 0, this, function (context) {
+            context.title = ["value"];
             let c = "";
             if (/^['"]/.test(context.filter)) {
                 c = context.filter[0];
