@@ -1,4 +1,21 @@
 // vim:noexpandtab:
+var INFO =
+<plugin name="hints-caret" version="0.0.1"
+        href="http://github.com/caisui/vimperator/blob/master/plugin/hints-caret.js"
+        summary="caret mode"
+        xmlns="http://vimperator.org/namespaces/liberator">
+    <author href="http://d.hatena.ne.jp/caisui">caisui</author>
+    <license href="http://www.opensource.org/licenses/bsd-license.php">New BSD License</license>
+    <project name="Vimperator" />
+    <item>
+        <description>
+					<tags> ;C </tags>
+            vim のレジスタのようなもの
+						選択ノードにcaret を 配置し modes.CARET に 切り替える。
+        </description>
+    </item>
+</plugin>;
+
 (function(){
   const global_attr1 = "user_caret_target_tags";
   const global_attr2 = "user_caret_mapping_key";

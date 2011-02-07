@@ -42,7 +42,9 @@ var INFO = //{{{
 ; //}}}
 (function () {
     const ios = services.services.io;
-    const NS_ERROR_SAVE_LINK_AS_TIMEOUT = 2153578528;
+    const NS_ERROR_SAVE_LINK_AS_TIMEOUT = 2153578528; //0x805D0020
+    const NS_ERROR_USER_STOP_REQUEST    = 2152398850; //0x804B0002
+    const NS_ERROR_DISCONNECT           = 2152398868; //0x804B0014
 
     function callbacks() {}
     callbacks.prototype = {
@@ -100,8 +102,8 @@ var INFO = //{{{
             this.length = aRequest.contentLength;
             this.offset = offset;
         },
-        timeout: function () {
-            this.text = "time out";
+        cancel: function (msg) {
+            this.text = <>cancel: {msg}</>.toString();
         }
     };
 
@@ -138,12 +140,25 @@ var INFO = //{{{
             }
         }, timeToWait, timer.TYPE_ONE_SHOT);
 
+        function __reload() {
+            if (log.retry < log.limitRetryCount) {
+                log.retry++;
+                _reloadImage(elem, loadGroup, log);
+            } else {
+                log.cancel("timeout");
+            }
+        }
+
         channel.asyncOpen({
             onStartRequest: function (aRequest, aContext) {
-                if (aRequest.status == NS_ERROR_SAVE_LINK_AS_TIMEOUT)
+                if (aRequest.status == NS_ERROR_SAVE_LINK_AS_TIMEOUT) {
                   return;
+                }
 
                 timer.cancel();
+                if (!Components.isSuccessCode(aRequest.status))
+                    return;
+
                 log.update(aRequest, 0);
 
                 this.extListener = elem.loadImageWithChannel(aRequest);
@@ -156,13 +171,12 @@ var INFO = //{{{
                     this.extListener.onDataAvailable(aRequest, aContext, aInputStream, aOffset, aCount);
             },
             onStopRequest: function (aRequest, aContext, aStatusCode) {
-                if (aRequest.status == NS_ERROR_SAVE_LINK_AS_TIMEOUT) {
-                    if (log.retry < log.limitRetryCount) {
-                        log.retry++;
-                        _reloadImage(elem, loadGroup, log);
-                    } else {
-                        log.timeout();
-                    }
+                if (!Components.isSuccessCode(aRequest.status)) {
+                    if (aRequest.status === NS_ERROR_USER_STOP_REQUEST)
+                        log.cancel("user cancel");
+                    else if (aRequest.status === NS_ERROR_SAVE_LINK_AS_TIMEOUT
+                        || aRequest.status === NS_ERROR_DISCONNECT
+                    ) __reload();
                     return;
                 }
                 log.update(aRequest, aRequest.contentLength);

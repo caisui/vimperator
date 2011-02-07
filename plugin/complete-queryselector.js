@@ -14,8 +14,9 @@ var INFO = //{{{
             Command の completer として利用例
             <code><![CDATA[
                 commands.addUserCommand(["test"], "test", function (arg){}, {
+                    literal: 0,
                     completer: function (context) plugins.completeQueryselector.complete(context, content.document)
-                });
+                }, true);
             ]]></code>
         </description>
     </item>

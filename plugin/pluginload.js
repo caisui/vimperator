@@ -2,7 +2,7 @@
 	commands.addUserCommand(["pluginload"], "plugin load",
 		function (args) { io.source(args[0]); },
 		{
-			literal: 1,
+			literal: 0,
 			completer: function (context, args){
 				context.completions = 
 					[[f.path.replace(/\\/g,"/"), ""] for([,f] in Iterator(io.getRuntimeDirectories("plugin")))]

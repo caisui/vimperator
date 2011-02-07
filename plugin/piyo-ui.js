@@ -1,4 +1,5 @@
 // vim: set sw=4 ts=4 fdm=marker et :
+//"use strict";
 var INFO = //{{{
 <plugin name="piyo-ui" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/piyo-ui.js"
@@ -15,11 +16,47 @@ var INFO = //{{{
 </plugin>;
 //}}}
 
+let interval = liberator.globalVariables.piyo_interval || 200;
+
 function log() Application.console.log(Array.concat("piyo:", Array.splice(arguments, 0)))
+let stopWatch = {
+    start: function () this.t = Date.now(),
+    end: function () Application.console.log(Array.concat(Date.now() - this.t, Array.splice(arguments, 0)))
+};
 
 let fx3 = /^3/.test(Application.version);
 let disabledFixed = liberator.globalVariables.piyo_disabled_fixed;
 let piyo = this;
+
+function DelayTimer(self, minInterval, callback) {
+    let timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+    return {
+        notify: function (aTimer) {
+            timer.cancel();
+            this.doneAt = Date.now();
+            callback.apply(self, this.args);
+        },
+        tell:function () {
+            if (this.doneAt === -1)
+                timer.cancel();
+
+            this.args = Array.splice(arguments, 0);
+
+            timer.initWithCallback(this, minInterval, timer.TYPE_ONE_SHOT);
+            this.doneAt = -1;
+        },
+        reset: function () {
+            timer.cancel();
+            this.doneAt = 0;
+        },
+        flush: function () {
+            if (this.doneAt === -1) {
+                this.args = Array.splice(arguments, 0);
+                this.notify();
+            }
+        }
+    };
+}
 
 let PiyoCommands = Class("PiyoCommands", Commands, {
     init: function (array) {
@@ -51,6 +88,7 @@ let PiyoCommands = Class("PiyoCommands", Commands, {
         return PiyoCommands(exCommand);
     }
 });
+
 let PiyoGuardCommand = Class("PiyoGuardCommand", {
     init: Command.prototype.init,
     hasName: Command.prototype.hasName
@@ -92,26 +130,39 @@ let PiyoUI = Class("PiyoUI", //{{{
         this.editor = editor;
         this.items = [];
         this._filter = "";
+        this._scripts = {};
 
         function NOP() void 0
         this.__defineGetter__("NOP", function() NOP);
 
         let self = this;
-        this._updateTimer = new Timer(300, 500, function () {
-            if (self.filter !== self._filter) {
-                log(self.filter);
-                self.open(self.original, self.editor.value, this.modifiers);
+        this._updateTimer = DelayTimer(this, 300, function () {
+            if (this.filter !== this._filter) {
+                this.openAsync(this.original, this.editor.value, this.modifiers);
             }
         });
-        this._resizer = new Timer(100, 200, function () {
+        //this._updateTimer = new Timer(300, 500, function () {
+        //    if (self.filter !== self._filter) {
+        //        log("post", self.filter);
+        //        //self.open(self.original, self.editor.value, this.modifiers);
+        //        self.openAsync(self.original, self.editor.value, this.modifiers);
+        //        //self.generatorAsync(self.original, self.editor.value, this.modifiers);
+        //    }
+        //});
+        this._resizer = new Timer(100, 300, function (force) {
             let box = self.box;
-            log("resize", box.style.height);
-            if (box.style.height !== "0pt") {
-                box.style.height = self.doc.height + "px";
-                box.style.maxHeight = 0.5 * window.innerHeight + "px";
-            }
+            //log("resize", box.style.height, box.clientHeight);
+            //if (force || box.style.height !== "0pt") {
+                if (box.clientHeight < self.doc.height) {
+                    box.style.height = self.doc.height + "px";
+                    box.style.maxHeight = 0.5 * window.innerHeight + "px";
+                }
+            //}
         });
-        this.iframe.addEventListener("resize", function () self._resizer.tell(), false);
+        this._updateStatus = new Timer(200, 500, function () {
+            self.updateStatus();
+        });
+        //this.iframe.addEventListener("resize", function () self._resizer.tell(), false);
     },
     get doc() this.iframe.contentDocument,
     get box() this.iframe.parentNode,
@@ -119,41 +170,74 @@ let PiyoUI = Class("PiyoUI", //{{{
     get selectedItem() this.items[this.index],
     get style() //{{{
         <![CDATA[
+            * {
+                margin: 0;
+                padding: 0;
+            }
             body {
                 overflow-x: hidden;
                 font: Consolas;
             }
+            body * {
+                padding: 1px 2px;
+            }
             #main {
                 width: 100%;
             }
-            tr:nth-child(odd) {
+            .item:nth-child(odd) {
                 background: #eee;
             }
-            tr[selected] {
+            /*xxx: [selected]?*/
+            .item[selected] {
                 background: #ffec8b;
                 -moz-border-radius: 4px;
             }
-            tr td:nth-last-child(1){
-                width: 100%;
-            }
             .mark {
+                display: inline-block;
                 padding-left: 1ex;
                 min-width: 1ex;
                 max-width: 1ex;
                 font-weight: bold;
                 color: blue;
             }
-            caption {
+            .title {
                 text-align: left;
                 font-weight: bold;
                 background: -moz-linear-gradient(19% 75% 90deg, #DBDBDB, #D9D9D9, #E7E7E7 100%);
                 padding: 0.5ex;
+                width: 100%;
             }
         ]]> + (liberator.globalVariables.piyo_style || ""), //}}}
-    open: function (source, input, modifiers) {
+    open: function (source, input, modifiers) //{{{
+    {}, //}}}
+    openAsync: function openAsync(source, input, modifiers) {
+        if (this.build) {
+            log("start", this.filter, this.build);
+            this.abort = {
+                type: "filter",
+                args: Array.splice(arguments, 0)
+            };
+            return;
+        }
+        this.generatorAsync (source, input, modifiers);
+    },
+    abortAction: function () {
+        let inf = this.abort;
+        switch(inf.type) {
+        case "filter":
+            this.openAsync.apply(this, inf.args);
+            break;
+        }
+    },
+    generatorAsync: function generatorAsync(source, input, modifiers) //{{{
+    {
         if (!modifiers) modifiers = {};
         if ([modes.PIYO, modes.PIYO_I].indexOf(liberator.mode) < 0)
             modes.set(modes.PIYO);
+
+        this.tid = 0;
+        this.abort = false;
+        this.build = true;
 
         this.modifiers = modifiers;
         this.editor.value = input || "";
@@ -162,85 +246,150 @@ let PiyoUI = Class("PiyoUI", //{{{
 
         let self = this;
         this._contexts = [];
-        let items = [];
+        this.items = [];
 
-        // create context and context's items
-        source.split(/\s+/).forEach(function _createSource(name) {
-            if (self._aliases[name])
-                self._aliases[name].forEach(_createSource);
-            else {
-                let source = self.createContext(self._sources[name], 0);
-            }
-        });
-
-        // create ui
+        // init ui
         let doc = this.doc;
         let style = doc.createElement("style");
         style.innerHTML = this.style;
         doc.body.innerHTML = "";
         doc.body.appendChild(style);
-        let mark = doc.createElement("td");
-        mark.classList.add("mark");
 
-        if (this._contexts.length === 0) {
-            liberator.echoerr("no create sources");
-            return;
-        }
-
-        this._contexts.forEach(function (context) {
-            if (context.items.length === 0) return;
-
-            let node = doc.createElement("table");
-            let title = doc.createElement("caption")
-            title.textContent = context.title || "no name";
-            node.appendChild(title);
-
-            let highlighter = context.getHighlighter(self.editor.value);
-            context.offset = items.length;
-            context.items.forEach(function (item) {
-                let hi = highlighter(item);
-                if (hi) {
-                    let view = util.xmlToDom(context.createView(item, highlighter(item)), doc);
-                    view.classList.add("item");
-                    node.appendChild(view);
-                    let td = mark.cloneNode(false);
-                    view.insertBefore(td, view.firstChild);
-                    items.push(PiyoItem(item, view, context));
+        function _createSource(self, names) {
+            for (var [, name] in Iterator(names)) {
+                if (self._aliases[name]) {
+                    self._aliases[name].forEach(_createSource);
+                    for (var source in _createSource(self, self._aliases[name]))
+                        yield source;
+                } else {
+                    yield self._sources[name];
                 }
-            });
-            context.itemLength = items.length - context.offset;
-            doc.body.appendChild(node);
-        });
-        this.items = items;
+            }
+        }
+        
+        let thread = services.get("threadManager").mainThread;
 
+        function _createItem(self, filter, iterSource) {
+            let items = [];
+            item_generator: for (let source in iterSource) {
+                let context = source();
+                this._contexts.push(context);
+                self._resizer.tell();
+
+                // view
+                let root = util.xmlToDom(context.createRoot(), doc);
+                let (title = root.querySelector(".title")) {
+                    if (title) title.textContent = context.title || "no name";
+                }
+                doc.body.appendChild(root);
+                let (node = root.querySelector(".content")) {
+                    if (node) root = node;
+                    else root.classList.add("content");
+                }
+
+                let node = doc.createDocumentFragment();
+                context.filter = filter;
+                let highlighter = context.getHighlighter(filter);
+
+                let iterItem = context.generator(self);
+                if (iterItem instanceof Array) {
+                    iterItem = util.Array.itervalues(iterItem);
+                }
+
+                // items offset
+                context.offset = items.length;
+                let nextUpdate = Date.now() + interval;
+                let max = cnt = 0, min = Infinity;
+                for (let item in iterItem) {
+                    var aCnt = 0;
+                    while (thread.processNextEvent(false)) aCnt ++;
+                    max = Math.max(max, aCnt);
+                    min = Math.min(min, aCnt);
+                    cnt += aCnt;
+                    if (self.abort) {
+                        log("abort", self.abort);
+                        iterItem.close();
+                        self.setTimeout(function () {
+                            this.abortAction();
+                        }, 0);
+                        break item_generator;
+                    }
+                    context.items.push(item);
+                    let hi = highlighter(item);
+                    if (hi) {
+                        let view = util.xmlToDom(context.createView(item, highlighter(item)), doc);
+                        //let view = xmlToDom(context.createView(item, highlighter(item)), doc);
+                        view.classList.add("item");
+                        node.appendChild(view);
+                        items.push(PiyoItem(item, view, context));
+
+                        let max = 1, len = self.items.length;
+                        if (len > 1000) {
+                            max = 500;
+                        } else if (len > 20) {
+                            max = 100;
+                        }
+                        if (node.childNodes.length > max) {
+                            root.appendChild(node);
+                            node = doc.createDocumentFragment();
+                            //services.get("threadManager").mainThread.processNextEvent(true);
+                            self.items = Array.concat(self.items || [], items);
+                            items = [];
+
+                            if (self.index === -1) {
+                                self.index = 0;
+                                self.selectedItem.select();
+                                window.setTimeout(function ()
+                                    util.scrollIntoView(self.iframe.contentDocument.body), 0);
+                                //self.scroll(0, true);
+                            }
+
+                            self._resizer.tell();
+                            self._updateStatus.tell();
+                        }
+                    }
+                }
+                root.appendChild(node);
+                self.items = Array.concat(self.items || [], items);
+                log(max, min, cnt);
+            }
+            if (this._contexts.length === 0) {
+                self.echoerr("no create sources");
+                return;
+            }
+
+            this.build = false;
+
+            if (!self.abort) {
+                //self.updateStatus();
+                self._updateStatus.tell();
+                this._resizer.tell();
+            }
+            log("render end");
+        }
+        //this.setTimeout(function () _createItem.call(self, self, _createSource(self, source.split(" "))), 0);
         let iframe = this.iframe;
         let box = this.box;
-        this.box.collapsed = false;
 
-        box.style.height = doc.height + "px";
-        box.style.maxHeight = 0.5 * window.innerHeight + "px";
+        this.box.collapsed = false;
+        this._filter = this.filter;
+        this.index = -1;
 
         if (!disabledFixed)
             let (r = commandline._commandlineWidget.parentNode.getBoundingClientRect()) {
                 box.style.bottom = r.height + "px";
                 log(r.height);
             }
+        //this._resizer.tell(true);
 
-        this.index = 0;
-        this._filter = this.filter;
-        if (this.items.length > 0)
-            this.selectedItem.select();
-        else {
-            box.style.height = "1em";
-            doc.body.innerHTML = "(empty)";
-        }
-
-        util.nodeScrollIntoView(doc.body);
-        if (liberator.mode == modes.PIYO)
-            modes.show();
-    },
+        _createItem.call(self, self, this._filter, _createSource(self, source.split(" ")));
+    },//}}}
+    test: function generatorAsync(source, input, modifiers) //{{{
+    {},//}}}
     hide: function () {
         this.box.style.height = 0;
+        this.iframe.innerHTML = "";
+        if (this.build) this.abort = true;
         window.setTimeout(function () ui.box.collapsed = true, 0);
     },
     refresh: function () this.open(this.original, this.filter, this.modifiers),
@@ -290,11 +439,13 @@ let PiyoUI = Class("PiyoUI", //{{{
         delete this._sources[name];
     },
     scroll: function (index, relative) {
+        if (this.index === -1) return;
         if (relative) index += this.index;
         else if (index < 0) index = this.items.length - 1;
         index = Math.max(0, Math.min(this.items.length - 1, index));
 
         let item = this.selectedItem;
+        if (!item) return;
         item.unselect();
 
         item = this.items[this.index = index];
@@ -369,17 +520,24 @@ let PiyoUI = Class("PiyoUI", //{{{
         if (typeof(file) === "string") file = io.File(file);
         if (!/\.piyo$/.test(file.leafName) || !file.isFile()) return;
         let uri = services.get("io").newFileURI(file);
-        let script = Script(file);
+        let name = file.leafName;
+
+        let script;
+        if ((name in (this._scripts))  && ("onUnload" in (script = this._scripts[name])))
+            script.onUnload();
+
+        script = {__proto__: piyo};
         log(<>load plugin: {file.leafName}</>);
-        script.__defineGetter__("piyo", function() piyo);
         liberator.loadScript(uri.spec, script);
+        this._scripts[name] = script;
     },
     loadPiyos: function () {
         let dir = io.File(piyo.PATH).parent;
         dir.append("piyo");
         dir = io.File(dir);
+        let self = this;;
         if (dir.exists() && dir.isDirectory()) {
-            dir.readDirectory().forEach(this.loadPiyo);
+            dir.readDirectory().forEach(function(f) self.loadPiyo(f));
         }
     },
     getCommands: function () {
@@ -394,9 +552,16 @@ let PiyoUI = Class("PiyoUI", //{{{
     },
     echo:    function () let(args = Array.splice(arguments, 0)) this.setTimeout(function () liberator.echo.apply(liberator, args), 0),
     echoerr: function () let(args = Array.splice(arguments, 0)) this.setTimeout(function () liberator.echoerr.apply(liberator, args), 0),
+    get rowStateE4X() <>[{this.index + 1}/{this.items.length}{this.build ? "*" : ""}]</>,
+    updateStatus: function () {
+        if (liberator.mode == modes.PIYO) {
+            modes.show();
+        } else {
+            commandline._setPrompt(this.rowStateE4X.toString());
+        }
+    }
 }, {
-});
-//}}}
+}); //}}}
 
 let PiyoSource = Class("PiyoSource", //{{{
 {
@@ -417,6 +582,10 @@ let PiyoSource = Class("PiyoSource", //{{{
         }
         this._commands = PiyoCommands(Array.concat.apply(0, stack));
     },
+    //createRoot: function () <table style="border-collapse:collapse;"><caption class="title"/><tbody class="content">
+    //<style><![CDATA[tr.item>td:last-child{width:100%;}]]></style>
+    //</tbody></table>,
+    createRoot: function () <table style="border-collapse:collapse;"><style><![CDATA[tr>td:last-child{width:100%;}]]></style><caption class="title"/></table>,
     getHighlighter: function () {
         let filter = this.filter.trim();
         let keys = this.keys;
@@ -540,10 +709,11 @@ PiyoSource.prototype.commands._addCommand(commands.get("js"));
 
 let PiyoItem = Class("PiyoItem", //{{{
 {
-    init: function (item, view, context) {
+    init: function init(item, view, context) {
         this.item = item;
         this.view = view;
         this.source = context;
+        this.__defineGetter__("_mark", function () this.view.querySelector(".mark"));
     },
     select: function () {
         this.view.setAttribute("selected", true);
@@ -551,8 +721,8 @@ let PiyoItem = Class("PiyoItem", //{{{
     unselect: function () {
         this.view.removeAttribute("selected");
     },
-    get mark() !!this.view.firstChild.textContent,
-    set mark(value) this.view.firstChild.textContent = value ? "*" : "",
+    get mark() let(q = this._mark) q && q.textContent,
+    set mark(value) let (q = this._mark) q && (q.textContent = value ? "*" : ""),
     toggleMark: function () this.mark = !this.mark,
 });//}}}
 
@@ -581,9 +751,9 @@ let onUnload = (function () // {{{
         _box.classList.add("liberator-container");
         _box.collapsed = true;
         _box.style.maxHeight = "256px";
+        _box.style.minHeight = "10px";
         _box.style.height = "0";
         _box.style.MozTransition = "all 0.25s";
-        //_box.style.maxHeight = "1%";
 
         if (!disabledFixed) {
             _box.style.position = "fixed";
@@ -613,16 +783,16 @@ let onUnload = (function () // {{{
 
         _box.appendChild(iframe);
         let onceIframe = domAddEventListener(iframe, "load", function () {
-            iframe.contentDocument.body.id = "liberator-completions-content";
+            iframe.contentDocument.body.id = "liberator-piyo-content";
             onceIframe();
         }, true);
         iframe.setAttribute("src", "chrome://liberator/content/buffer.xhtml");
 
         uninstall.$push = proxyClass(modules.events, {
             onFocusChange: function (event) {
-                log("mode", liberator.mode);
+                //log("mode", liberator.mode);
                 if ([modes.PIYO, modes.PIYO_I].indexOf(liberator.mode) >= 0) {
-                    if(liberator.focus) Application.console.log(liberator.focus.id);
+                    //if(liberator.focus) Application.console.log(liberator.focus.id);
 
                     return;
                 }
@@ -650,7 +820,7 @@ let onUnload = (function () // {{{
         uninstall.$push = proxyClass(modules.commandline, {
             onEvent: function (event) {
                 if ([modes.PIYO, modes.PIYO_I].indexOf(liberator.mode) >= 0) {
-                    log(event.type);
+                    //log(event.type);
                     if (liberator.mode === modes.PIYO) {
                         if (event.type === "focus" && liberator.mode === modes.PIYO
                             && ui.editor.compareDocumentPosition(liberator.focus) & Node.DOCUMENT_POSITION_CONTAINED_BY)
@@ -673,13 +843,14 @@ let onUnload = (function () // {{{
         modes.addMode("PIYO_I", {char: "pi", input: true, display: -1});
     }
     modes._modeMap[modes.PIYO].display =
-        function() <>PIYO #{ui.editor.value}# [{ui.index + 1}/{ui.items.length}]</>;
+        function() <>PIYO #{ui.editor.value}# {ui.rowStateE4X}</>;
 
     [ //mapping PIYO
         [["j"], "down", function (count) ui.scroll(Math.max(count,  1), true), {count: true}],
         [["k"], "up",   function (count) ui.scroll(-Math.max(count, 1), true), {count: true}],
         [["<C-f>"], "page scroll down", function (count) ui.scrollByPages( Math.max(count, 1)), {count: true}],
         [["<C-b>"], "page scroll up",   function (count) ui.scrollByPages(-Math.max(count, 1)), {count: true}],
+        [["<C-c>"], "stop search", function () ui.build && (ui.abort = true)],
         [["<Esc>"], "", function () {
             ui.quit();
         }],
@@ -717,7 +888,7 @@ let onUnload = (function () // {{{
             });
         }],
         [["zt"], "top",    function () util.nodeScrollIntoView(ui.selectedItem.view, 0,   -1)],
-        [["zz"], "center", function () util.nodeScrollIntoView(ui.selectedItem.view, 50,  -1)],
+        [["zz"], "center", function () util.nodeScrollIntoView(ui.selectedItem.view, 50,  -1) || ui._resizer.tell()],
         [["zb"], "bottom", function () util.nodeScrollIntoView(ui.selectedItem.view, 100, -1)],
         [["<Return>"], "execute default action", function () {
             ui.execute("default");
@@ -739,12 +910,13 @@ let onUnload = (function () // {{{
 
     delete uninstall.$push;
     return function () {
-        delete this.onUnload;
+        //delete this.onUnload;
+        this.onUnload = null;
         uninstall.forEach(function (f) f());
     };
 })(this); //}}}
 
-let ui = PiyoUI(iframe, commandline._commandWidget);
+var ui = PiyoUI(iframe, commandline._commandWidget);
 let util = {
     __proto__: modules.util,
     nodeScrollIntoView: function nodeScrollIntoView(aNode, aVPercent, aHPercent) {
@@ -753,14 +925,7 @@ let util = {
         var doc = aNode.ownerDocument;
         var win = doc.defaultView;
         var selection = win.getSelection();
-        var ranges = function (selection) {
-            var selection = win.getSelection();
-            for(let i = 0, j = selection.rangeCount; i < j; ++i) {
-                yield selection.getRangeAt(i);
-            }
-        };
 
-        var back = [r for(r in ranges(selection))];
         selection.removeAllRanges();
         var r = doc.createRange();
 
@@ -771,12 +936,14 @@ let util = {
                     true, aVPercent, aHPercent);
 
         selection.removeAllRanges();
-
-        for(let [,r] in Iterator(back)){
-            selection.addRange(r);
-        }
     },
     icon16: function (image) <img style="margin: 1px;max-height: 16px;" src={image}/>,
+    normalMatcher: function (word) {
+        return function (text) {
+            let index = text.indexOf(word);
+            return index >= 0 ? [{pos: index, len: word.length}] : [];
+        };
+    },
     regexpMatcher: function (word) {
         var re = new RegExp(word, "gi");
         return function (text) {
@@ -816,8 +983,10 @@ let util = {
     }
 };
 
-commands.addUserCommand(["piyo"], "piyo command", function (args) {
-    ui.open(Array.join(args, " "), args["-i"] || "");
+commands.addUserCommand(["pi[yo]"], "piyo command", function (args) {
+    //ui.open(Array.join(args, " "), args["-i"] || "");
+    //ui.generatorAsync(Array.join(args, " "), args["-i"] || "");
+    ui.openAsync(Array.join(args, " "), args["-i"] || "");
 }, {
     options: [
         [["-i", "-input"], commands.OPTION_STRING],
@@ -837,4 +1006,12 @@ commands.addUserCommand(["loadpiyo"], "piyo load plugin", function (args) {
     completer: function (context) completion.file(context, true)
 }, true);
 
+ui.iter = {
+    tabs: function () (t for ([,t] in iter(gBrowser.mTabs))),
+    vtabs: function () (t for ([,t] in Iterator(gBrowser.visibleTabs))),
+    wins: function (type) iter(services.get("windowMediator").getEnumerator(type)),
+};
+
 ui.loadPiyos();
+
+plugins[this.NAME] = this;

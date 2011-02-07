@@ -43,7 +43,8 @@
   setup("zn" , "tree style tab next parent tab" , "nextParentTab");
   setup("zN" , "tree style tab next root tab"   , "nextRootTab");
   setup("zj" , "tree style tab next tab"        , "nextTab");
-  setup("zp" , "tree style tab prev parent tab" , "prevParentTab");
+  //setup("zp" , "tree style tab prev parent tab" , "prevParentTab");
+  setup("zp" , "tree style tab prev parent tab" , "readyToOpenTabPaste");
   setup("zP" , "tree style tab prev root tab"   , "prevRootTab");
   setup("zk" , "tree style tab prev tab"        , "prevTab");
   setup("zd" , "remove tree tab"                , "removeTabSubTree");
@@ -233,6 +234,13 @@
     },
     readyToOpenTabOnce: function () {
       U1.readyToOpenChildTabCore(let(t = g.selectedTab) T.getParentTab(t) || t);
+    },
+    readyToOpenTabPaste: function () {
+      try{
+      U1.readyToOpenChildTabCore(g.selectedTab, true);
+      mappings.get(modes.NORMAL, "P").action();
+      U2.stopToOpenChildTab();
+      }catch(ex){liberator.echoerr(ex);}
     },
     readyToOpenChildTab: function () {
       U1.readyToOpenChildTabCore(g.selectedTab, true);

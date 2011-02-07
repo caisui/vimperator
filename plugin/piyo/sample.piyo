@@ -1,8 +1,8 @@
 // vim:set ft=javascript sw=4 ts=4 et :
 
-piyo.ui.registerSource("tab", {
+ui.registerSource("tab", {
     createView: function (item, hi)
-        <tr><td align="right">{item.tab._tPos + 1}</td><td>{piyo.util.icon16(item.icon)}</td><td>{hi.label}</td></tr>,
+        <tr><td class="mark"/><td align="right">{item.tab._tPos + 1}</td><td>{piyo.util.icon16(item.icon)}</td><td>{hi.label}</td></tr>,
     description: "sample source",
     title: "tab list(demo)",
     default: "select",
@@ -20,6 +20,13 @@ piyo.ui.registerSource("tab", {
             for ([, t] in iter(gBrowser.mTabs))
         ];
     },
+    generator: function () ({
+        tab: t,
+        get icon() this.tab.image || DEFAULT_FAVICON,
+        get label() [this.title, this.url],
+        get url() this.tab.linkedBrowser.contentDocument.location.href,
+        get title() this.tab.label
+    } for ([, t] in iter(gBrowser.mTabs))),
     commands: function (commands) {
         commands.add(["select"], "select", function (args, modifiers) {
             gBrowser.selectedTab = modifiers.items[0].item.tab;
@@ -45,40 +52,64 @@ piyo.ui.registerSource("tab", {
                 [["-s"], commands.OPTION_STRING, null]
             ]
         });
-        commands.add(["close"], "close tab", function (args, modifiers) {
+        commands.add(["cl[ose]"], "close tab", function (args, modifiers) {
             modifiers.items.forEach(function (item) {
                 gBrowser.removeTab(item.item.tab);
             });
         });
-        commands.add("win[dow]", "move window", function (args, modifiers) {
+
+        function importTab(win, tabs) {
+            liberator.assert(win != window, "Can't reattach to the same window");
+            let browser = win.gBrowser;
+            tabs.forEach(function (src) {
+                let dest = browser.addTab("about:blank");
+                browser.stop();
+                browser.docShell;
+                browser.selectedTab = dest;
+                browser.swapBrowsersAndCloseOther(dest, src);
+            });
+            win.focus();
+        }
+        commands.add(["at[tach]"], "Attach the tab to another window", function (args, modifiers) {
             let tabs = modifiers.items.map(function(i) i.item.tab);
-            piyo.ui.open("window-2", "", {user:{tabs: tabs}});
+            piyo.ui.openAsync("window-2", "", {user:{tabs: tabs}});
             modifiers.noquit = true;
+        });
+        commands.add(["de[tach]"], "Detach current tab to its own window", function (args, modifiers) {
+            try {
+            window.open("about:blank");
+            let win = services.get("windowMediator").getMostRecentWindow("navigator:browser");
+            importTab(win, modifiers.items.map(function (i) i.item.tab));
+            } catch(ex) {liberator.echoerr(ex);}
+        });
+        commands.add("re[load]", "reload tab", function (args, modifiers) {
+            modifiers.items.map(function (i) i.item.tab)
+                .forEach(function (tab) {
+                    tabs.reload(tab, args.bang);
+                });
         });
     }
 });
 
 // use migemo macther
 piyo.ui.registerSource("tab-m", "tab", {
-    matcher: piyo.util.migemoMatcher,
+    matcher: util.migemoMatcher
 });
 
 piyo.ui.registerSource("window", {
     description: "window",
     // todo: icon...
     createView: function (item, hi)
-        <tr><td>{item.active ? "%": ""}</td><td>{hi.title}</td><td>{item.win.document.baseURI}</td></tr>
+        <tr><td>{item.active ? "%": ""}</td><td>{hi.title}</td><td>{item.win.document.location.href}</td></tr>
     ,
     keys: ["title"],
     default: "select",
     windowtype: null,
-    createItem: function (ui) {
-        this.items = [{
+    generator: function () ({
             win: w,
             title: w.document.title,
             active: window === w,
-        } for (w in iter(services.get("windowMediator").getEnumerator(this.windowtype)))];
-    },
+        } for (w in iter(services.get("windowMediator").getEnumerator(this.windowtype)))),
     commands: function (commands) {
         commands.add(["select"], "focus window", function (args, modifiers) {
             modifiers.items[0].item.win.focus();
@@ -114,14 +145,16 @@ piyo.ui.registerSource("window-2", "window-navi", {
         commands.stop = true;
         commands.add(["select"], "", function (args, modifiers) {
             let win = modifiers.items[0].item.win;
-            if (window === win) {
-                piyo.ui.echoerr("target window is same");
-                return;
-            }
-            modifiers.user.tabs.forEach(function (src) {
-                let dest = win.gBrowser.addTab();
 
-                win.gBrowser.swapBrowsersAndCloseOther(dest, src);
+            liberator.assert(win != window, "Can't reattach to the same window");
+
+            let browser = win.gBrowser;
+            modifiers.user.tabs.forEach(function (src) {
+                let dest = browser.addTab("about:blank");
+                browser.stop();
+                browser.docShell;
+                browser.selectedTab = dest;
+                browser.swapBrowsersAndCloseOther(dest, src);
             });
             win.focus();
         });
@@ -136,6 +169,7 @@ piyo.ui.registerSource("storageHistory", {
     default: "delete",
     keys: ["value"],
     default: "open",
+    generator: function (ui) util.Array.itervalues(this.createItem(ui) || this.items),
     createItem: function (ui) {
         let array = modules.storage[this.storageKey];
         let now = Date.now();
@@ -196,26 +230,25 @@ piyo.ui.registerSource("command-mru2", "command-mru", {
 
 piyo.ui.registerSource("closetab-mru", "tab", {
     description: "sample source",
-    title: "suaua",
+    title: "closed tab history",
     default: "select",
     keys: ["label"],
-    createItem: function (ui) {
+    generator: function () {
         let session = JSON.parse(services.get("sessionStore").getClosedTabData(window));
-        this.items = session.map(function (s, n) {
-            return {
+        return session.map(function (s, n) ({
                 s: s,
                 tab: {_tPos: s.pos},
                 get icon() this.s.image || DEFAULT_FAVICON,
                 get label() this.s.title,
                 get index() n
-            };
-        });
+            }));
     },
     commands: function (commands) {
         commands.stop = true;
         commands.add(["restore"], "restore closed tab", function (args, modifiers) {
             let ss = services.get("sessionStore");
             modifiers.items.forEach(function (i) {
+                ///todo: forgot restore tab
                 let state = JSON.stringify(i.item.s.state);
                 let tab = gBrowser.addTab();
                 ss.setTabState(tab, state);
@@ -225,6 +258,160 @@ piyo.ui.registerSource("closetab-mru", "tab", {
     }
 });
 
-//piyo.ui.addAlias("ch", ["command-mru", "search-mru"]);
-
 function onUnload() { }
+
+// vim:set ft=javascript sw=4 ts=4 et :
+piyo.ui.registerSource("history", {
+    title: "history",
+    description: "history source",
+    keys: ["title", "uri"],
+    get: function (filter, maxItems) {
+        // no query parameters will get all history
+        let query = services.get("history").getNewQuery();
+        let options = services.get("history").getNewQueryOptions();
+
+        if (typeof filter == "string")
+            filter = { searchTerms: filter };
+        for (let [k, v] in Iterator(filter))
+            query[k] = v;
+        options.sortingMode = options.SORT_BY_DATE_DESCENDING;
+        options.resultType = options.RESULTS_AS_URI;
+        if (maxItems > 0)
+            options.maxResults = maxItems;
+
+        //let fav = Cc["@mozilla.org/browser/favicon-service;1"].getService(ci.nsIFaviconService);
+        // execute the query
+        let root = services.get("history").executeQuery(query, options).root;
+        root.containerOpen = true;
+        //let items = util.map(util.range(0, root.childCount), function (i) {
+        //    let node = root.getChild(i);
+        //    return {
+        //        url: node.uri,
+        //        title: node.title,
+        //        icon: node.icon || DEFAULT_FAVICON
+        //    };
+        //});
+        let items = util.map(util.range(0, root.childCount), function (i) root.getChild(i));
+        root.containerOpen = false; // close a container after using it!
+
+        return items;
+    },
+    createView: function (item, hi)
+<tr><td>{piyo.util.icon16(item.icon)}</td><td>{item.itemId}</td>
+<td><div>{hi.title || "no title"}</div><div style="font-size:0.8em;color:green;">{hi.uri}</div></td></tr>,
+    createItem: function (ui, modifiers) {
+        //this.items = this.get(this.filter, 100);
+        this.items = this.get("");
+    },
+    matcher: piyo.util.normalMatcher,
+    //generator: function (ui) util.Array.itervalues(this.get("")),
+    generator: function (ui) {
+        let conn = Cc["@mozilla.org/browser/nav-history-service;1"].getService(Ci.nsPIPlacesDatabase).DBConnection;
+        let favicon = services.get("favicon"); 
+        let stmt = conn.createStatement(<![CDATA[
+select mp.id, mp.url, mp.title, mp.favicon_id
+from moz_historyvisits mh join moz_places mp on mh.place_id = mp.id
+]]>);
+        let count = 0;
+        while(stmt.executeStep()) {
+            let o = {
+                get itemId() stmt.getInt64(0),
+                get icon() {
+                    try {
+                    //return favicon.getFaviconForPage(services.get("io").newURI(this.uri, null, null)).spec;
+                    return favicon.getFaviconImageForPage(services.get("io").newURI(this.uri, null, null)).spec;
+                    } catch(ex) {
+                        if (++count > 100)
+                            piyo.ui.abort = true;
+                        Application.console.log(ex);
+                        return "";
+                    }
+                },
+                get uri() stmt.getUTF8String(1),
+                get title() stmt.getUTF8String(2),
+                get favicon() stmt.getInt64(3)
+                //get last_visit_date() new Date(stmt.getInt64(3)/1000),
+            };
+            yield o;
+        }
+    }
+});
+piyo.ui.registerSource("history-d", "history", {
+    createRoot: function () <div><div class="title"/></div>,
+    createView: function (item, hi)
+<div><span class="mark"/><span>{piyo.util.icon16(item.icon)}</span><span style="display:inline-block;">{hi.title || "no title"}<br/><span style="font-size:0.8em;color:green;">{hi.uri}</span></span></div>,
+});
+
+piyo.ui.registerSource("history-m", "history", {
+    matcher: piyo.util.migemoMatcher
+});
+
+piyo.ui.registerSource("places", {
+    title: "places",
+    description: "places source",
+    keys: ["title", "uri"],
+    createRoot: function () <div>
+<style><![CDATA[
+.item {display:relative;}
+.i {display: inline-block; width: 20px;}
+.t { display: inline-block; white-space: nowrap;width:1px;}
+.x {color: gray;}
+.y {color: orange;}
+.u {font-size: .8em; color:green;}
+.tag{position:absolute; right: 0; color: blue;}
+]]></style><div class="title"/></div>,
+    createView: function (item, hi)
+<div style="display:inline-block;width:100%;"><span class="mark"/>
+<span class="i">{piyo.util.icon16(item.icon)}</span>
+<span class="t">{hi.title || "no title"}<br/>
+<span class={item.bid === 0 ? "x" : "y"}>{"\u2605"}</span><span class="u">{hi.uri}</span></span>
+<span class="tag">[{item.tag}]</span>
+</div>,
+    generator: function (ui) {
+        let conn = Cc["@mozilla.org/browser/nav-history-service;1"].getService(Ci.nsPIPlacesDatabase).DBConnection;
+        let favicon = services.get("favicon"); 
+        let stmt = conn.createStatement(<![CDATA[
+select
+mp.id, mp.url, mp.title, mp.favicon_id, mb.id
+from moz_places mp left outer join moz_bookmarks mb
+on mp.id = mb.fk and mb.title is not null
+]]>);
+        let count = 0;
+        let tagging = PlacesUtils.tagging;
+        try {
+            while(stmt.executeStep()) {
+                let o = {};
+                o.itemId  = stmt.getInt64(0);
+                o.uri     = stmt.getUTF8String(1);
+                o.title   = stmt.getUTF8String(2);
+                o.favicon = stmt.getInt64(3);
+                o.bid     = stmt.getInt64(4);
+
+                try {
+                    let uri = services.get("io").newURI(o.uri, null, null);
+                    if (o.bid !== 0) {
+                      o.tags = tagging.getTagsForURI(uri, {});
+                      o.tag = o.tags.join(",");
+                    } else {
+                        o.tag = "";
+                    }
+
+                    o.icon = favicon.getFaviconImageForPage(uri).spec;
+                } catch(ex) {
+                    Application.console.log(o.uri);
+                }
+                yield o;
+            }
+        } finally {
+            stmt.reset();
+        }
+    },
+    commands: function (commands) {
+        commands.add(["t[abopen]"], "", function (args, modifiers) {
+            liberator.open(
+                modifiers.items.map(function (i) i.item.uri),
+                {where: liberator.NEW_TAB}
+            );
+        });
+    },
+});
