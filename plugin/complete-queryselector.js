@@ -33,13 +33,13 @@ function javascriptCompleterQuerySelector (context, func, obj, args) {
 }
 
 let listPseudo = [
-    "afetr",
-    "before",
+    "link",
+    "visited",
+    "active",
+    "hover",
+    "focus",
     "lang",
     "not",
-    "first",
-    "left",
-    "right",
     "root",
     "nth-child",
     "nth-last-child",
@@ -51,6 +51,16 @@ let listPseudo = [
     "last-of-type",
     "only-of-type",
     "empty",
+    "target",
+    "checked",
+    "enabled",
+    "default",
+    "disabled",
+    "indeterminate",
+    "invalid",
+    "optional",
+    "required",
+    "valid",
     "-moz-any"
 ];
 
@@ -107,7 +117,7 @@ function completeStyle(context) {
 }
 
 function parseAttribute(offset, str) {
-    let filter, skip = true, i = offset, type, word = "";
+    let filter = offset, skip = true, i = offset, type, word = "";
     for (let c = str[i]; c; c = str[++i]) {
         switch (c) {
         case "[":
@@ -115,11 +125,11 @@ function parseAttribute(offset, str) {
                return [str.length, "err", offset, i - offset];
             }
             type = "[";
-            filter = i;
+            filter = i + 1;
             break;
         case " ":
             if (skip)
-                filter = i;
+                filter = i + 1;
             break;
         case "]":
             return skip
@@ -137,7 +147,7 @@ function parseAttribute(offset, str) {
             skip = true;
             type = "=";
             offset = i - 1;
-            filter = i;
+            filter = i + 1;
 
             break;
         case "=":
@@ -145,7 +155,7 @@ function parseAttribute(offset, str) {
                 return [str.length, "err", offset, i - offset + 1];
             skip = true;
             type = "=";
-            filter = i;
+            filter = i + 1;
             offset = i;
             break;
         default:
@@ -170,7 +180,7 @@ function parsePseudo(offset, str) {
         case ")":
             if (!open)
                 return [-2, "err", i, 1];
-            return [i, ")", i, i];
+            return [i, ")", i, i + 1];
         case "[":
             return [--i, "", i, i];
         case " ":
@@ -178,11 +188,11 @@ function parsePseudo(offset, str) {
                 return [--i, "", i, i];
         }
     }
-    return [i, type, /*begin,*/ offset, offset -1];
+    return [i, type, /*begin,*/ offset, offset];
 }
 
 function parseSelector(offset, str) {
-    let i = offset, type = " ", sStart = 0, sEnd = -1, sFilter = -1, extra;
+    let i = offset, type = " ", sStart = 0, sEnd = -1, sFilter = 0, extra;
     for (let c = str[i]; c; c = str[++i]) {
         switch(c) {
         case ":":
@@ -203,14 +213,14 @@ function parseSelector(offset, str) {
             break;
         case ".":
             sEnd = i - 1;
-            sFilter = i - 1;
+            sFilter = i;
             type = ".";
             break;
         case ">":
         case "+":
         case "~":
         case " ":
-            sFilter = i;
+            sFilter = i + 1;
             type = c;
             sEnd = i;
             break;
@@ -223,7 +233,7 @@ function complete(context, obj) {
     context.anchored = false;
     obj = obj || content.document;
     let str = context.filter;
-    let sEnd = -1, sStart = 0, sFilter = -1, sLast, type = " ";
+    let sEnd = -1, sStart = 0, sFilter = 0, sLast, type = " ";
     let i = 0, sub;
     let selector = "";
     let attr;
@@ -254,11 +264,11 @@ function complete(context, obj) {
         if (separator.indexOf(selector.substr(-1)) >= 0)
             selector += "*";
     }
-    else if (type !== "]" && type !== ")")
+    else if (type !== "]" && type !== ")" && type !== ":")
         selector += " *";
     if (!selector) selector = "*";
 
-    context.advance(sFilter + 1);
+    context.advance(sFilter);
 
     let tags = [];
     let attr = [];
