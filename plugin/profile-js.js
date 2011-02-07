@@ -58,13 +58,16 @@ function print() {
             display: none;
             position: absolute;
             background-color: rgba(255, 255, 240, .9);
-            left:1px;
+            right:1px;
             padding: 0.5em;
             border: 1px solid black;
             -moz-border-radius: 4px;
         }
         .a:hover .i {
             display: block;
+        }
+        .a a {
+            color: blue;
         }
     ]]></style>;
     xml.* += <thead><tr class="h">
@@ -85,7 +88,7 @@ function print() {
             <td>{script.totalOwnExecutionTime}</td>
             <td>{script.totalExecutionTime}</td>
             <td class="a"><div class="i">
-            <span>{script.fileName}:{script.line}</span>
+            <span><a href={script.fileName}>{script.fileName}</a>:{script.line}</span>
             <pre>{script.functionSource}</pre>
             </div></td>
         </tr>;
