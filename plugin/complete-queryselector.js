@@ -54,6 +54,58 @@ let listPseudo = [
     "-moz-any"
 ];
 
+let listStyles = let (csssd = CSSStyleDeclaration.prototype)
+    (Object.getOwnPropertyNames ? Object.getOwnPropertyNames(csssd) : [a for (a in csssd)])
+    .filter(function (css) csssd.__lookupGetter__(css))
+    .map(function (css) css.replace(/[A-Z]/g, function (s) "-" + s.toLocaleLowerCase()));
+
+// { xxx:...
+//  ^<- offset pos
+function parseStyle(offset, str) {
+    let i = offset, skip = true, type = ";";
+    for (let c = str[i]; c; c = str[++i]) {
+        switch (c) {
+        case "{":
+            return [-2, "err", offset, i];
+        case ";":
+            skip = true;
+            type = c;
+            offset = i + 1;
+            break;
+        case ":":
+            skip = false;
+            type = c;
+            iFilter = i;
+            break;
+        case "}":
+            return [];
+        case " ":
+            if (skip)
+                offset = i + 1;
+            break;
+        default:
+            skip = false;
+            break;
+        }
+    }
+    return [i, type/*, begin, end*/, offset];
+}
+
+function completeStyle(context) {
+    let [, type, offset] = parseStyle(0, context.filter);
+
+    context.title = ["css style"];
+    context.anchored = false;
+
+    //debug
+    //log(context.filter, type, offset, context.offset);
+    context.advance(offset);
+    //context.offset += offset;
+    if (type === ";") {
+        context.completions = listStyles.map(function (c) [c, ""]);
+    }
+}
+
 function parseAttribute(offset, str) {
     let filter, skip = true, i = offset, type, word = "";
     for (let c = str[i]; c; c = str[++i]) {
