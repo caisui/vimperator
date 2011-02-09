@@ -280,9 +280,22 @@ function complete(context, obj) {
 
     if (type === "=") {
         let val = [];
-        for (let [, node] in Iterator(obj.querySelectorAll(selector))) {
-            val.push(node.getAttribute(extra));
+        let cache = context.getCache("prevValue", Object);
+
+        if (cache.node === obj && cache.selector === selector) {
+            val = cache.list;
         }
+        else {
+            for (let [, node] in Iterator(obj.querySelectorAll(selector))) {
+                val.push(node.getAttribute(extra));
+            }
+            val = util.Array.uniq(val);
+
+            cache.node = obj;
+            cache.selector = selector;
+            cache.list = val;
+        }
+
         context.fork("value", 0, this, function (context) {
             context.title = ["value"];
             let c = "";
@@ -290,7 +303,7 @@ function complete(context, obj) {
                 c = context.filter[0];
                 context.quote = null;
             }
-            context.completions = util.Array.uniq(val).map(function (v) [c + v + c, ""]);
+            context.completions = val.map(function (v) [c + v + c, ""]);
         });
         return;
     }
@@ -305,23 +318,35 @@ function complete(context, obj) {
         //no implementation
         return;
     }
-    
-    try {
-        Array.forEach(obj.querySelectorAll(selector), function (node) {
-            tags.push(node.tagName.toLowerCase());
-            Array.prototype.push.apply(attr, Array.map(node.attributes, function (a) a.name));
-            //Fx3.6 NG classList
-            Array.prototype.push.apply(clas, Array.slice(node.classList));
-            if (node.id) ids.push(node.id);
-        });
-    } catch (ex) {
-        Cu.reportError(ex);
-        return;
+
+    let cache = context.getCache("prevFull", Object);
+
+    if (cache.node === obj && cache.selector === selector) {
+        [tags, attr, clas, ids] = cache.list;
+    }
+    else {
+        try {
+            Array.forEach(obj.querySelectorAll(selector), function (node) {
+                tags.push(node.tagName.toLowerCase());
+                Array.prototype.push.apply(attr, Array.map(node.attributes, function (a) a.name));
+                //Fx3.6 NG classList
+                Array.prototype.push.apply(clas, Array.slice(node.classList));
+                if (node.id) ids.push(node.id);
+            });
+        } catch (ex) {
+            Cu.reportError(ex);
+            return;
+        }
+
+        tags = util.Array.uniq(tags);
+        attr = util.Array.uniq(attr);
+        clas = util.Array.uniq(clas);
+
+        cache.node = obj;
+        cache.selector = selector;
+        cache.list = [tags, attr, clas, ids];
     }
 
-    tags = util.Array.uniq(tags);
-    attr = util.Array.uniq(attr);
-    clas = util.Array.uniq(clas);
 
     if (type === "[") {
         context.fork("attr", 0, this, function (context) {
