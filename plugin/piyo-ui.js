@@ -271,6 +271,7 @@ let PiyoUI = Class("PiyoUI", //{{{
 
         function _createItem(self, filter, iterSource) {
             let items = [];
+            let duration = Date.now();
             item_generator: for (let source in iterSource) {
                 let context = source();
                 this._contexts.push(context);
@@ -329,7 +330,7 @@ let PiyoUI = Class("PiyoUI", //{{{
                         } else if (len > 20) {
                             max = 100;
                         }
-                        if (node.childNodes.length > max) {
+                        if ((Date.now() - duration > 500) && node.childNodes.length > max) {
                             root.appendChild(node);
                             node = doc.createDocumentFragment();
                             //services.get("threadManager").mainThread.processNextEvent(true);
@@ -346,6 +347,7 @@ let PiyoUI = Class("PiyoUI", //{{{
 
                             self._resizer.tell();
                             self._updateStatus.tell();
+                            duration = Date.now();
                         }
                     }
                 }
@@ -364,6 +366,10 @@ let PiyoUI = Class("PiyoUI", //{{{
                 //self.updateStatus();
                 self._updateStatus.tell();
                 this._resizer.tell();
+                if (this.index === -1) {
+                    this.index = 0;
+                    this.selectedItem.select();
+                }
             }
             log("render end");
         }

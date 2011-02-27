@@ -133,6 +133,16 @@ piyo.ui.registerSource("window", {
                 else win.close();
             }
         });
+        commands.add(["yank"], "copy", function (args, modifiers) {
+            let targets = args["-type"] || ["url"];
+            let separator = args["-s"] || ",";
+
+            let str = modifiers.items.map(function (item) item.item.win.document.location.href).join("\n");
+
+            this.setTimeout(function () 
+                util.copyToClipboard(str, true), 0);
+        }, {
+        });
     }
 });
 
