@@ -42,7 +42,7 @@ var INFO = //{{{
 
     var setup = function (key, desc, f) {
         mappings.remove([modes.NORMAL], key);
-        mappings.addUserMap([modes.NORMAL], [key], desc, function () self.control[f].apply(this, arguments), extra);
+        mappings.addUserMap([modes.NORMAL], [key], desc, function () self.control[f].apply(self.control, arguments), extra);
     };
 
     if (!liberator.globalVariables.disabled_tree_style_tab_default_map) //set mapping{{{
@@ -282,8 +282,16 @@ var INFO = //{{{
             T.attachTabTo(this.markTab, t);
         },
         moveNextTab: function () {
-            var t = gBrowser.selectedTab;
-            U1.performDrop(markTab, T.getParentTab(t), U1.getInsertBeforeTab(t));
+            var aTab = gBrowser.selectedTab;
+            var aParent = T.getParentTab(aTab);
+            var aNext = T.getNextSiblingTab(aTab);
+
+            if (aTab === this.markTab || aNext === this.markTab) return;
+            else {
+                T.partTab(this.markTab);
+                T.attachTabTo(this.markTab, aTab);
+                T.promoteTab(this.markTab);
+            }
         },
         moveUp: function (aCount) {
             repeat(Math.max(aCount, 1), function () T.promoteCurrentTab());
