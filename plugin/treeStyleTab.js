@@ -169,7 +169,7 @@ var INFO = //{{{
         }
     };//}}}
 
-    this.control = //{{{
+    let U2 = this.control = //{{{
     {
         nextTab: function (aCount) {
             g.selectedTab = U1.getNextTab(g.selectedTab, aCount);
