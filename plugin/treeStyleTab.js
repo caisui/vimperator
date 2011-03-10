@@ -11,7 +11,7 @@ var INFO = //{{{
         <description>
             Tree Style Tab を 操作 するためのpluginです<br/>
 
-            <li>2011.03.09 Firefox 4.0b13pre で 動作確認</li>
+            <li>2011.03.10 Firefox 4.0b13pre で 動作確認</li>
         </description>
     </item>
     <item>
@@ -96,7 +96,12 @@ var INFO = //{{{
         getLastRootTab: function () T.getRootTab(T.getLastTab(g)),
         gene_iterator: function (funcName, aTab, aLoop) {
             var action = T[funcName];
-            while (1) yield aTab = action.call(T, aTab) || aLoop;
+            while (1)  {
+                aTab = action.call(T, aTab) || aLoop;
+                if (!aTab) break;
+                if (!aTab.hidden)
+                    yield aTab;
+            }
         },
         getNextTab: function (aTab, aCount) {
             var it = U1.gene_iterator("getNextSiblingTab", aTab, let(p = T.getParentTab(aTab)) p ? T.getFirstChildTab(p) : T.getFirstTab(g));
@@ -132,40 +137,32 @@ var INFO = //{{{
                 //target: null,//?
             }, aTab);
         },
-        getInsertBeforeTab: function (aTab) {
-            var ret = null;
-            for(let t = aTab; t; t = T.getParentTab(t)) {
-                if(ret = T.getNextSiblingTab(t)) break;
-            }
-            return ret;
-        },
         readyToOpenChildTabCore: function (aTab, aFlag) {
             T.readyToOpenChildTab(aTab, aFlag);
             var e = document.getElementById("liberator-statusline");
             e.setAttribute("style", "color:red;");
         },
-        getMoveTabSubTreeToIndex: function (aTab, aCount, reverse) {
-            let pTab = T.getParentTab(aTab);
-            let tabs = pTab ? T.getChildTabs(pTab) : T.rootTabs;
-            let src = T.getChildIndex(aTab, pTab);
-            let dest = src + aCount;
-            if(dest < 0) dest = 0;
-            else if (dest >= tabs.length) dest = tabs.length - 1;
-            if (src == dest) return -1;
-            else if (src < dest) {
-                dest = (function (aTab) {
-                    let t = T.getLastChildTab(aTab);
-                    return t ? arguments.callee.call(this, t) : aTab;
-                })(tabs[dest])._tPos || -1;
-            } else dest = tabs[dest]._tPos;
-            return dest;
-        },
         moveTabSubTreeToEx: function (aTab, aCount, reverse) {
             aCount = aCount || 1;
             if (aCount == -1) aCount = 1;
-            if (reverse) aCount = -aCount;
-            let index = U1.getMoveTabSubTreeToIndex(aTab, aCount);
-            if (index >= 0) T.moveTabSubTreeTo(aTab, index);
+
+            var it = U1.gene_iterator(reverse ? "getPreviousSiblingTab" : "getNextSiblingTab", aTab, null);
+            try {
+                var prevTab;
+                while (aCount-- > 0)
+                    prevTab = it.next();
+            } catch (ex) { }
+
+            if (!prevTab || aTab === prevTab) return;
+
+            if (!reverse) {
+                let lastTab = T.getLastDescendantTab(prevTab);
+                if (lastTab)
+                    prevTab = lastTab;
+            }
+
+            if (aTab !== prevTab)
+                T.moveTabSubTreeTo(aTab, prevTab._tPos);
         }
     };//}}}
 
@@ -272,7 +269,15 @@ var INFO = //{{{
         setMarkTab: function () {
             this.markTab = g.selectedTab;
         },
+        assertHiddenPinned: function (aTab) {
+            liberator.assert(!this.markTab.hidden, "not supported: another group move");
+
+            liberator.assert(!this.markTab.pinned, "not supported: pinned tab move");
+            liberator.assert(!aTab.pinned, "not supported: pinned tab move");
+        },
         moveChildTab: function () {
+            this.assertHiddenPinned(gBrowser.selectedTab);
+
             var t = g.selectedTab;
             if(this.markTab && T.getDescendantTabs(this.markTab).indexOf(t)>= 0) {
                 liberator.echoerr("error:loop");
@@ -282,6 +287,8 @@ var INFO = //{{{
             T.attachTabTo(this.markTab, t);
         },
         moveNextTab: function () {
+            this.assertHiddenPinned(gBrowser.selectedTab);
+
             var aTab = gBrowser.selectedTab;
             var aParent = T.getParentTab(aTab);
             var aNext = T.getNextSiblingTab(aTab);
