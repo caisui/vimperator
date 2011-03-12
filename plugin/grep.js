@@ -51,9 +51,10 @@
         });
         options.get(option_scroll).__defineGetter__("vhPercent", function() position_list[this.value]||[-1, -1]);
 
+        let defaultOp = ("migemo" in window) ? "imx" : "imr";
         options_remove(option_grep);
         options.add([option_grep], "grep option",
-        "charlist", "imx",
+        "charlist", defaultOp,
         {
             scope: scope,
             setter:function(value) {
