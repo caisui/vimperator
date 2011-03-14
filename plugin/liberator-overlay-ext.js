@@ -1,8 +1,8 @@
 // vim:set sw=4 ts=4 et:
 var INFO = //{{{
-<plugin name="liberator-overlay-ext-2" version="0.0.1"
+<plugin name="liberator-overlay-ext" version="0.1.0"
         href="http://github.com/caisui/vimperator/blob/master/plugin/liberator-overlay-ext.js"
-        summary="liberator overlay 2"
+        summary="liberator overlay"
         xmlns="http://vimperator.org/namespaces/liberator">
     <author href="http://d.hatena.ne.jp/caisui">caisui</author>
     <license href="http://www.opensource.org/licenses/bsd-license.php">New BSD License</license>
@@ -18,34 +18,40 @@ var INFO = //{{{
         </description>
     </item>
     <item>
-      <tags> g:overlayStyle </tags>
-      <spec> let g:overlayStyle </spec>
+      <tags> g:disabled_overlay_transition </tags>
+      <spec> let g:disabled_overlay_transition </spec>
+      <type>boolean</type>
+      <default>false</default>
       <description>
-        box の style を設定
+        animation を 抑止します。
       </description>
     </item>
 </plugin>; //}}}
 (function (self) {
     let style = document.createElementNS(XHTML, "style");
-    style.innerHTML = <><![CDATA[
+    style.innerHTML = <![CDATA[
         .liberator-overlay {
             position: fixed;
             width: 100%;
             max-height: 80%;
             min-height: 10px;
         }
+
+        #liberator-completions, #liberator-multiline-output {
+            background-color: transparent;
+        }
+
         .liberator-overlay > iframe {
             height: 100%;
             width: 100%;
         } ]]>
-        .liberator-overlay {"{"}
-            {liberator.globalVariables.overlayStyle || <>
-                /*border-top: 1px dotted gray;*/
-                opacity: 0.8;
-                -moz-transition: all 0.25s;
-            </>}
-        {"}"}
-    </>;
+        + (liberator.globalVariables.disabled_overlay_transition ?
+        <![CDATA[]]> : <![CDATA[
+        .liberator-overlay {
+            -moz-transition: all 0.1s;
+        }
+        ]]>);
+
     document.documentElement.appendChild(style);
 
     function watchHeight(id, oldVal, newVal) {
@@ -67,7 +73,7 @@ var INFO = //{{{
 
     watchEvent(liberatorCompletions);
     watchEvent(liberatorMultilineOutput);
-    
+
     function watchEvent (id) {
         let vbox = document.getElementById(id).parentNode;
         vbox.classList.add("liberator-overlay");
