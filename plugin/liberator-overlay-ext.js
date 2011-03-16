@@ -18,12 +18,12 @@ var INFO = //{{{
         </description>
     </item>
     <item>
-      <tags> g:disabled_overlay_transition </tags>
-      <spec> let g:disabled_overlay_transition </spec>
+      <tags> overlayanimation oani </tags>
+      <spec> set [no]overlayanimation </spec>
       <type>boolean</type>
       <default>false</default>
       <description>
-        animation を 抑止します。
+        animation の ON/OFF
       </description>
     </item>
 </plugin>; //}}}
@@ -44,20 +44,36 @@ var INFO = //{{{
         .liberator-overlay > iframe {
             height: 100%;
             width: 100%;
-        } ]]>
-        + (liberator.globalVariables.disabled_overlay_transition ?
-        <![CDATA[]]> : <![CDATA[
-        .liberator-overlay {
-            -moz-transition: all 0.1s;
         }
-        ]]>);
+        .liberator-overlay.animation {
+            -moz-transition: height .1s;
+        }]]>;
 
     document.documentElement.appendChild(style);
+
+    options.add(["overlayanimation", "oani"], "overlay animation", "boolean", false, {
+        setter: function (newVal) {
+            Array.forEach(document.querySelectorAll(".liberator-overlay"), function (e) {
+                let nm = newVal ? "add" : "remove";
+                e.classList[nm]("animation");
+                e[nm + "EventListener"]("transitionend", updatePrompt, false);
+            });
+            return newVal;
+        },
+    });
+
+    function updatePrompt(evt) {
+        let elem = evt.target;
+        if (!elem.collapsed) {
+            commandline.updateMorePrompt();
+        }
+    }
 
     function watchHeight(id, oldVal, newVal) {
         this.style.height = /^[0-9.]+$/.test(newVal) ? newVal + "px" : newVal;
         return newVal;
     }
+
     function watchCollapsed(id, oldVal, newVal) {
         if (newVal === true) {
             this.style.height = "1px";
@@ -89,6 +105,8 @@ var INFO = //{{{
     }
 
     self.onUnload = function () {
+        options.overlayanimation = false;
+        options.remove("oani");
         document.documentElement.removeChild(style);
         unwatchEvent(liberatorCompletions);
         unwatchEvent(liberatorMultilineOutput);
