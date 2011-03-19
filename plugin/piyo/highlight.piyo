@@ -3,7 +3,8 @@
 ui.registerSource("highlight", {
     description: "highlight list",
     title: "highlight list",
-    createRoot: function () <table style="border-collapse:collapse;"><style><![CDATA[
+    createRoot: function () <table style="border-collapse:collapse;">
+<caption class="title"/><style><![CDATA[
 .demo {
     display: inline-block !important;
     position: static !important;
@@ -21,6 +22,7 @@ ui.registerSource("highlight", {
     commands: function (commands) {
         commands.add(["se[t]"], "!set highlight", function (args, modifiers) {
             let hi = modifiers.items[0].item;
+            highlight.set(hi.class, args[0], false, "-append" in args);
         }, {
             literal: 0,
             options:[
