@@ -1,7 +1,7 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 //"use strict";
 var INFO = //{{{
-<plugin name="piyo-ui" version="0.0.1"
+<plugin name="piyo-ui" version="0.0.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/piyo-ui.js"
         summary="piyo ui"
         xmlns="http://vimperator.org/namespaces/liberator">
