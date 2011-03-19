@@ -24,16 +24,27 @@
         propertiesFile.__defineGetter__(id,function() properties.get(id,Ci.nsIFile).QueryInterface(Ci.nsILocalFile));
     }
 
-    function exec_firefox(name, isPrivate) {
+    function exec_firefox(args) {
+        let name = args[0];
         if (!name) return;
 
         try {
             let profile = propertiesFile.ProfD.parent;
             profile.append(name);
 
-            let args = ["--no-remote", "-profile", profile.path];
-            if (isPrivate)
-                args = ["-private"].concat(args);
+            let params = ["--no-remote", "-profile", profile.path];
+            let vimparams = [];
+
+            if (args["--private-mode"])
+                params.push("-private");
+            if (args["-console"])
+                params.push("-console");
+
+            if (args["--no-plugin"])
+                vimparams.push("++noplugin");
+
+            if (vimparams.length > 0)
+                params.push("-vimperator", vimparams.join(" "));
 
             let file = propertiesFile.CurProcD;
             file.appendRelativePath("firefox.exe");
@@ -43,33 +54,36 @@
                 return;
             }
             let proc = Cc["@mozilla.org/process/util;1"].createInstance(Ci.nsIProcess);
+            liberator.log(params, 0);
 
             proc.init(file);
-            proc.run(false, args, args.length);
+            proc.run(false, params, params.length);
         } catch (ex) {
             liberator.echoerr(ex);
         }
-    }
-
-    function simpleEnumrator(enumlator) {
-      while (enumlator.hasMoreElements()) {
-            yield enumlator.getNext();
-      }
     }
 
     function completer_profile(context) {
       var dir = propertiesFile.ProfD.parent;
       let it = dir.directoryEntries;
       context.completions = [
-        [f.leafName, f.path] for(f in simpleEnumrator(dir.directoryEntries))
+        [f.leafName, f.path] for(f in iter(dir.directoryEntries))
             if(f.QueryInterface(Ci.nsIFile) && f.isDirectory())
       ];
     }
 
-    let option = {
-        argCount: "1",
-        completer: completer_profile
-    };
-    commands.addUserCommand(["private[fox]"], "run firefox", function () exec_firefox(arguments[0], true), option, true);
-    commands.addUserCommand(["firefox","fx"], "run firefox", function () exec_firefox(arguments[0]), option ,true);
+    const op_fx = [
+        [["-console", "-c"],       commands.OPTION_NOARG],
+        [["--private-mode", "-p"], commands.OPTION_NOARG],
+    ];
+
+    commands.addUserCommand(["firefox", "fx"], "run firefox", exec_firefox, { argCount: "1",
+        literal: 0,
+        completer: completer_profile,
+        options: [
+            [["-console", "-c"] , commands.OPTION_NOARG, null],
+            [["--private-mode", "-p"] , commands.OPTION_NOARG, null],
+            [["--no-plugin"   , "-np"], commands.OPTION_NOARG, null],
+        ]
+    }, true);
 })();
