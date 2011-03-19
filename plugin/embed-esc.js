@@ -1,6 +1,6 @@
 // vim:set sw=4 ts=4 fdm=marker:
 var INFO = //{{{
-<plugin name="embed-esc" version="0.0.1"
+<plugin name="embed-esc" version="0.0.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/embed-esc.js"
         summary="Embed Esc"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -64,7 +64,7 @@ var INFO = //{{{
 
     function getObserveKey() liberator.globalVariables.embed_esc_key || VK_ESCAPE
 
-    embedTimer = {
+    let embedTimer = {
         observe: function () {
             if (inactive_check) {
                 if (document.documentElement.mozMatchesSelector(":-moz-window-inactive")) {
