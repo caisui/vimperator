@@ -1,0 +1,76 @@
+// vim:set ft=javascript sw=4 ts=4 et :
+
+const query = <![CDATA[
+SELECT id, target, name, source, state, startTime, endTime, referrer,
+currBytes, maxBytes, state
+FROM moz_downloads
+ORDER BY (state <> 0), endTime DESC, startTime DESC
+]]>.toString();
+
+function sqlquery(db, query, params) {
+    const fields = {
+        "INTEGER": "getInt64",
+        "TEXT": "getUTF8String",
+    };
+    try {
+        var stmt = db.createStatement(query);
+        var reader = [];
+
+        if (stmt.executeStep()) {
+            for (let i = 0, j = stmt.columnCount; i < j; ++i) {
+                let name = stmt. getColumnName(i);
+                let type = stmt.getColumnDecltype(i);
+                reader.push([name, fields[type]]);
+            }
+            do {
+                yield reader.reduce(function (obj, [n, t], i) {obj[n] = stmt[t](i); return obj;}, {});
+            } while (stmt.executeStep());
+        }
+    } catch (ex) {
+        Cu.reportError(ex);
+    } finally {
+        if (stmt)
+            stmt.reset();
+    }
+}
+
+ui.registerSource("download", {
+    description: "download list",
+    title: "dowload list",
+    keys: ["name"],
+    createView1: function (item, hi) <tr style="vertical-align: top;"><td class="mark"/><td><img src={"moz-icon://"+item.target+"?size=64"}/></td>
+    <td><br/><span style="position: absolute; white-space: nowrap;color:blue;">{item.source}</span></td>
+    <td>{item.id}</td><td style="color:green;">{(new Date(item.endTime/1000)).toLocaleFormat("%y%m%d")}</td>
+    <td>{1.0*item.currBytes/item.maxBytes*100}%</td><td>{item.state}</td><td>{hi.name}</td>
+    </tr>,
+    createView: function (item, hi) <tr style="vertical-align: top;"><td class="mark"/><td><img src={"moz-icon://"+item.$.target.spec+"?size=64"}/></td>
+    <td><br/><span style="position: absolute; white-space: nowrap;color:blue;">{item.$.source.spec}</span></td>
+    <td>{item.$.id}</td><td style="color:green;">{(new Date(item.$.startTime/1000)).toLocaleFormat("%y%m%d")}</td>
+    <td align="right">{item.$.percentComplete}%</td><td>{item.$.state}</td><td>{hi.name}</td>
+    </tr>,
+    generator1: function () {
+        return sqlquery(gDownloadMgr.DBConnection, query);
+    },
+    generator: function () {
+        let proto = {
+            get $() this.item,
+            get name() this.item.displayName
+        };
+        for (let q in sqlquery(gDownloadMgr.DBConnection, query)) {
+            yield {__proto__: proto, item: gDownloadMgr.getDownload(q.id)};
+        }
+    },
+    commands: function (commands) {
+        ["cancel", "remove", "pause", "resume", "retry"].forEach(function (n) {
+            commands.add([n], n + " download", function (args, modifiers) {
+                modifiers.items.forEach(function (i) {
+                    gDownloadMgr[n + "Download"](i.item.item.id);
+                });
+            });
+        });
+        commands.add(["opend[ir]"], "!open directory", function (args, modifiers) {
+            let file = modifiers.items[0].item.item.targetFile;
+            file.parent.QueryInterface(Ci.nsILocalFile).reveal();
+        });
+    }
+});

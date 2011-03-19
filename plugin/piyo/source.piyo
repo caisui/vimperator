@@ -1,0 +1,18 @@
+// vim:set ft=javascript sw=4 ts=4 et :
+
+piyo.ui.registerSource("source", {
+    createView: function (item, hi)
+        <tr><td>{hi.label}</td><td>{item.desc}</td></tr>,
+    description: "source list",
+    title: "source",
+    default: "select",
+    keys: ["label"],
+    generator: function (ui) {
+        return let (s = ui._sources)
+            ({label: a, desc: s[a].prototype.description} for (a in s));
+    },
+    commands: function (commands) {
+    }
+});
+
+//piyo.ui.addAlias("ch", ["command-mru", "search-mru"]);

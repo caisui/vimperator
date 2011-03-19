@@ -1,0 +1,71 @@
+// vim:set ft=javascript sw=4 ts=4 et :
+
+piyo.ui.registerSource("storageHistory", {
+    abstract: true,
+    createView: function (item, hi) <tr><td align="right">{item.time}</td><td>{hi.value}</td></tr>,
+    description: "storage array manager",
+    title: "storage array",
+    default: "delete",
+    keys: ["value"],
+    default: "open",
+    generator: function (ui) util.Array.itervalues(this.createItem(ui) || this.items),
+    createItem: function (ui) {
+        let array = modules.storage[this.storageKey];
+        let now = Date.now();
+
+        function toString(time) {
+            var s;
+            [[1000, function (t) <>{t}ms</>],
+             [60,   function (t) <>{t.toFixed(2)}s </>],
+             [60,   function (t) <>{t.toFixed(2)}m </>],
+             [24,   function (t) <>{t.toFixed(2)}h </>],
+            ].some(function ([t, fmt]) {
+                if (time < t) {
+                    s = fmt(time);
+                    return true;
+                } else {
+                    time /= t;
+                    return false;
+                }
+            });
+            return s || <>{time.toFixed(2)}d </>;
+        }
+        this.items = [{
+                item: array.get(i),
+                get time() toString(now - this.item.timestamp),
+                get value() this.item.value
+            } for (i in util.range(0, array.length))
+        ];
+        this.items.sort(function(a, b) b.item.timestamp - a.item.timestamp);
+    },
+    commands: function (commands) {
+        commands.add(["delete"], "delete", function (args, modifiers) {
+            let items = [];
+            let source = modifiers.items[0].source;
+            let list   = modifiers.items.filter(function (i) i.mark).map(function (i) i.item.item);
+
+            let array = modules.storage[source.storageKey];
+            array.mutate("filter", function (i) list.indexOf(i) < 0);
+        });
+    }
+});
+
+piyo.ui.registerSource("command-mru", "storageHistory", {
+    title: "history command",
+    storageKey: "history-command",
+    commands: function (commands) {
+        commands.add(["open"], "!open command", function (args, modifiers) {
+            commandline.setTimeout(function() this.open("", modifiers.items[0].item.item.value, modes.EX), 0);
+        });
+    }
+});
+
+piyo.ui.registerSource("search-mru", "storageHistory", {
+    title: "history command",
+    storageKey: "history-search",
+    commands: function (commands) {
+        commands.add(["open"], "!open command", function (args, modifiers) {
+            commandline.setTimeout(function() this.open("", modifiers.items[0].item.item.value, modes.EX), 0);
+        });
+    }
+});

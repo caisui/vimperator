@@ -1,0 +1,147 @@
+// vim:set ft=javascript sw=4 ts=4 et :
+
+ui.registerSource("tab", {
+    createRoot: function ()
+        <table style="border-collapse:collapse;width:100%;"><style><![CDATA[
+[nest]     { padding-left: 6ex; }
+[nest="0"] { padding-left: 0; }
+[nest="1"] { padding-left: 1ex; }
+[nest="2"] { padding-left: 2ex; }
+[nest="3"] { padding-left: 3ex; }
+[nest="4"] { padding-left: 4ex; }
+[nest="5"] { padding-left: 5ex; }
+]]></style><caption class="title"/><tbody class="content"/></table>,
+    createView: function (item, hi)
+        <tr><td class="mark"/><td style="color:blue;">{item.state}</td><td align="right">{item.tab._tPos + 1}</td>
+        <td nest={item.nest}>{piyo.util.icon16(item.icon)}</td><td style="width:100%;">{hi.label}</td></tr>,
+    description: "tab list source",
+    title: "tab list",
+    default: "select",
+    keys: ["label"],
+    generator: function () {
+        let proto = {
+            get icon() this.tab.image || DEFAULT_FAVICON,
+            get label() [this.title, this.url],
+            get url() this.tab.linkedBrowser.contentDocument.location.href,
+            get title() this.tab.label,
+            get state() {
+                if (this.tab === gBrowser.selectedTab)
+                    return "%";
+                else if (this.tab === tabs.alternate)
+                    return "#";
+                else if (this.tab.pinned)
+                    return "@";
+                else
+                    return "";
+            },
+            get nest() this.tab.getAttribute("treestyletab-nest") || 0,
+        };
+        return ({
+            __proto__: proto,
+            tab: t,
+        } for ([, t] in iter(gBrowser.mTabs)));
+    },
+    commands: function (commands) {
+        commands.add(["select"], "select", function (args, modifiers) {
+            gBrowser.selectedTab = modifiers.items[0].item.tab;
+        });
+
+        let yankMethod = {
+            url: function (item) item.item.url,
+            title: function (item) item.item.title,
+        };
+        commands.add(["yank"], "copy", function (args, modifiers) {
+            let targets = args["-type"] || ["url"];
+            let separator = args["-s"] || ",";
+
+            let str = modifiers.items.map(function (item)
+                targets.map(function (func) yankMethod[func](item)).join(separator)
+            ).join("\n");
+
+            this.setTimeout(function ()
+                util.copyToClipboard(str, true), 0);
+        }, {
+            options:[
+                [["-type", "-t"], commands.OPTION_LIST, null, [[a,a] for(a in yankMethod)], true],
+                [["-s"], commands.OPTION_STRING, null]
+            ]
+        });
+        commands.add(["cl[ose]"], "close tab", function (args, modifiers) {
+            modifiers.items.forEach(function (item) {
+                gBrowser.removeTab(item.item.tab);
+            });
+        });
+
+        function importTab(win, tabs) {
+            liberator.assert(win != window, "Can't reattach to the same window");
+            let browser = win.gBrowser;
+            tabs.forEach(function (src) {
+                let dest = browser.addTab("about:blank");
+                browser.stop();
+                browser.docShell;
+                browser.selectedTab = dest;
+                browser.swapBrowsersAndCloseOther(dest, src);
+            });
+            win.focus();
+        }
+        commands.add(["at[tach]"], "Attach the tab to another window", function (args, modifiers) {
+            let tabs = modifiers.items.map(function(i) i.item.tab);
+            piyo.ui.openAsync("window-2", "", {user:{tabs: tabs}});
+            modifiers.noquit = true;
+        });
+        commands.add(["de[tach]"], "Detach current tab to its own window", function (args, modifiers) {
+            try {
+            window.open("about:blank");
+            let win = services.get("windowMediator").getMostRecentWindow("navigator:browser");
+            importTab(win, modifiers.items.map(function (i) i.item.tab));
+            } catch(ex) {liberator.echoerr(ex);}
+        });
+        commands.add("re[load]", "reload tab", function (args, modifiers) {
+            modifiers.items.map(function (i) i.item.tab)
+                .forEach(function (tab) {
+                    tabs.reload(tab, args.bang);
+                });
+        });
+    }
+});
+
+// use migemo macther
+ui.registerSource("tab-m", "tab", {
+    description: "tab list for XUL/Migemo",
+    matcher: util.migemoMatcher
+});
+
+ui.registerSource("closetab-mru", "tab", {
+    description: "sample source",
+    title: "closed tab history",
+    default: "select",
+    keys: ["label"],
+    generator: function () {
+        let session = JSON.parse(services.get("sessionStore").getClosedTabData(window));
+        let proto = {
+            get icon() this.s.image || DEFAULT_FAVICON,
+            get label() this.s.title,
+            state: "",
+            nest: 0
+        };
+        return session.map(function (s, n) ({
+                __proto__: proto,
+                s: s,
+                tab: {_tPos: s.pos},
+                get index() n,
+            }));
+    },
+    commands: function (commands) {
+        commands.stop = true;
+        commands.add(["restore"], "restore closed tab", function (args, modifiers) {
+            let ss = services.get("sessionStore");
+            modifiers.items.forEach(function (i) {
+                ///todo: forgot restore tab
+                let state = JSON.stringify(i.item.s.state);
+                let tab = gBrowser.addTab();
+                ss.setTabState(tab, state);
+                gBrowser.selectedTab = tab;
+            });
+        });
+    }
+});

@@ -1,0 +1,72 @@
+// vim:set syntax=javascript:
+
+const focus = Cc["@mozilla.org/focus-manager;1"]
+          .getService(Ci.nsIFocusManager);
+commands.addUserCommand(["pse[lector]"], "", function (args) {
+    let selector = args[0];
+    log(selector, content.document.querySelectorAll(selector).length);
+    ui.list(args["-input"], {
+        keys: ["text"],
+        title: <>selector[{selector}]</>.toString(),
+        default: "select",
+        createView: function (i, h) <tr><td class="mark"/><td align="right">{i.num}</td><td>{h.text}</td></tr>,
+        generator: function () ({
+            num: i + 1,
+            node: n,
+            get text() this.node.textContent
+        } for ([i, n] in Iterator(content.document.querySelectorAll(selector)))),
+        commands: function (commands) {
+            commands.add(["select"], "", function (args, modifiers) {
+                let elem = modifiers.items[0].item.node;
+                window.setTimeout(function () {
+                    util.nodeScrollIntoView(elem);
+                    //elem.focus();
+                    //buffer.focusElement(elem),
+                    //elem = focus.moveFocus(elem.ownerDocument.defaultView, elem, Ci.nsIFocusManager.MOVEFOCUS_CARET,
+                    //    Ci.nsIFocusManager.FLAG_BYMOUSE);
+                    //    //Ci.nsIFocusManager.FLAG_NOSCROLL | Ci.nsIFocusManager.FLAG_NOSWITCHFRAME);
+                    //elem.blur();
+                    //elem.focus();
+                    let doc = elem.ownerDocument;
+                    let r = doc.createRange();
+                    //r.setStart(elem, 0);
+                    r.selectNode(elem);
+                    let selection = doc.defaultView.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(r);
+                    elem = focus.moveFocus(elem.ownerDocument.defaultView, null, Ci.nsIFocusManager.MOVEFOCUS_CARET,
+                        Ci.nsIFocusManager.FLAG_NOSCROLL | Ci.nsIFocusManager.FLAG_NOSWITCHFRAME);
+                    //r.setEnd(elem, 0);
+                }, 0);
+            });
+            commands.add(["open"], "open tabs from href attribute", function (args, modifiers) {
+                let aTab = gBrowser.selectedTab;
+                let menu = util.getContextMenu();
+                modifiers.items.forEach(function (i) {
+                    try {
+                    let node = i.item.node;
+                    menu.setTarget(node);
+                    menu.openLinkInTab();
+                    liberator.threadYield(true);
+                    } catch(ex) {Cu.reportError(ex);}
+                    //let href = node.href || node.getAttribute("href") || node.querySelector("[href]").getAttribute("href");
+                    //if (href) {
+                    //    href = makeURI(href, null, makeURI(node.baseURI, null, null)).spec;
+
+                    //    nsContextMenu.prototype.openLinkInTab.call({
+                    //        target: node,
+                    //        linkURL: url,
+                    //    });
+                    //    liberator.threadYield(true);
+                    //}
+                });
+            });
+        },
+    });
+}, {
+    literal: 0,
+    options: [
+        [["-input", "-i"], commands.OPTION_STRING],
+    ],
+    completer: function (context) plugins.completeQueryselector.complete(context, content.document),
+}, true);

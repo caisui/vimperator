@@ -1,0 +1,36 @@
+// vim:set ft=javascript sw=4 ts=4 et :
+
+const pref = services.get("pref");
+
+ui.registerSource("pref", {
+    description: "pref list",
+    title: "pref list",
+    keys: ["key"],
+    createView: function (item, hi) <tr><td class="mark"/><td>{hi.key}</td><td style={item.style}>{item.value}</td></tr>,
+    generator: function () {
+        let proto = {
+            get value() options.getPref(this.key),
+            get isUser() pref.prefHasUserValue(this.key),
+            get style() let(u=this.isUser)<>color:{u ? "black" : "gray"};font-weight:{u ? "bold" : "normal"}</>
+        };
+
+        let list = services.get("pref").getChildList("",{});
+
+        //xxx:
+        list.sort();
+
+        return ({
+            __proto__: proto,
+            key: key,
+        } for ([,key] in Iterator(list))
+        );
+    },
+    commands: function (commands) {
+        commands.add(["reset", "clear"], "clear user pref", function (args, modifiers) {
+            modifiers.items.forEach(function (i) {
+                pref.clearUserPref(i.item.key);
+            });
+        });
+        //todo: add, set
+    }
+});

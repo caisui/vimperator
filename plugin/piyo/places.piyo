@@ -1,0 +1,71 @@
+// vim:set ft=javascript sw=4 ts=4 et :
+
+piyo.ui.registerSource("places", {
+    title: "places",
+    description: "places source",
+    keys: ["title", "uri"],
+    createRoot: function () <div>
+<style><![CDATA[
+.item {display:relative;}
+.i {display: inline-block; width: 20px;}
+.t { display: inline-block; white-space: nowrap;width:1px;}
+.x {color: gray;}
+.y {color: orange;}
+.u {font-size: .8em; color:green;}
+.tag{position:absolute; right: 0; color: blue;}
+]]></style><div class="title"/></div>,
+    createView: function (item, hi)
+<div style="display:inline-block;width:100%;"><span class="mark"/>
+<span class="i">{piyo.util.icon16(item.icon)}</span>
+<span class="t">{hi.title || "no title"}<br/>
+<span class={item.bid === 0 ? "x" : "y"}>{"\u2605"}</span><span class="u">{hi.uri}</span></span>
+<span class="tag">[{item.tag}]</span>
+</div>,
+    generator: function (ui) {
+        let conn = Cc["@mozilla.org/browser/nav-history-service;1"].getService(Ci.nsPIPlacesDatabase).DBConnection;
+        let favicon = services.get("favicon");
+        let stmt = conn.createStatement(<![CDATA[
+select
+mp.id, mp.url, mp.title, mp.favicon_id, mb.id
+from moz_places mp left outer join moz_bookmarks mb
+on mp.id = mb.fk and mb.title is not null
+]]>);
+        let count = 0;
+        let tagging = PlacesUtils.tagging;
+        try {
+            while(stmt.executeStep()) {
+                let o = {};
+                o.itemId  = stmt.getInt64(0);
+                o.uri     = stmt.getUTF8String(1);
+                o.title   = stmt.getUTF8String(2);
+                o.favicon = stmt.getInt64(3);
+                o.bid     = stmt.getInt64(4);
+
+                try {
+                    let uri = services.get("io").newURI(o.uri, null, null);
+                    if (o.bid !== 0) {
+                      o.tags = tagging.getTagsForURI(uri, {});
+                      o.tag = o.tags.join(",");
+                    } else {
+                        o.tag = "";
+                    }
+
+                    o.icon = favicon.getFaviconImageForPage(uri).spec;
+                } catch(ex) {
+                    Application.console.log(o.uri);
+                }
+                yield o;
+            }
+        } finally {
+            stmt.reset();
+        }
+    },
+    commands: function (commands) {
+        commands.add(["t[abopen]"], "", function (args, modifiers) {
+            liberator.open(
+                modifiers.items.map(function (i) i.item.uri),
+                {where: liberator.NEW_TAB}
+            );
+        });
+    },
+});

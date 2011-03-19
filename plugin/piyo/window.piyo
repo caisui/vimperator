@@ -1,0 +1,96 @@
+// vim:set ft=javascript sw=4 ts=4 et :
+
+piyo.ui.registerSource("window", {
+    title: "window list",
+    description: "window",
+    // todo: icon...
+    createView: function (item, hi)
+        <tr><td class="mark"/><td style="font-weight:bold;color:blue;">{item.state}</td><td class="nw">{hi.title}</td><td>{item.type}</td><td>{item.win.document.location.href}</td></tr>
+    ,
+    keys: ["title"],
+    default: "select",
+    windowtype: null,
+    generator: function () {
+        let proto = {
+            get title() this.win.document.title,
+            get type() this.win.document.documentElement.getAttribute("windowtype") || "",
+            get state() {
+                let state = "";
+                if (window === this.win)
+                    state += "%";
+                return state;
+            },
+        };
+        return ({
+            __proto__: proto,
+            win: w,
+        } for (w in iter(services.get("windowMediator").getEnumerator(this.windowtype))));
+    },
+    commands: function (commands) {
+        commands.add(["select"], "focus window", function (args, modifiers) {
+            modifiers.items[0].item.win.focus();
+        });
+        commands.add(["close"], "close window", function (args, modifiers) {
+            let closeWindow = "closeWindow";
+            let closeSelf = false;
+            modifiers.items.forEach(function (item) {
+                let win = item.item.win;
+                if (win === window) {
+                    closeSelf = true;
+                    return;
+                }
+                if (closeWindow in win) win[closeWindow](true);
+                else win.close();
+            });
+
+            if (closeSelf) {
+                let win = window;
+                if (closeWindow in win) win[closeWindow](true);
+                else win.close();
+            }
+        });
+        commands.add(["yank"], "copy", function (args, modifiers) {
+            let targets = args["-type"] || ["url"];
+            let separator = args["-s"] || ",";
+
+            let str = modifiers.items.map(function (item) item.item.win.document.location.href).join("\n");
+
+            this.setTimeout(function ()
+                util.copyToClipboard(str, true), 0);
+        }, {
+        });
+
+        if (window.inspectDOMDocument) //todo: better DOMInspector check
+            commands.add(["inspect"], "!inspect window", function (args, modifiers) {
+                let doc = modifiers.items[0].item.win.document;
+                liberator.assert(doc, "not found document object");
+                window.inspectDOMDocument(doc);
+            });
+    }
+});
+
+piyo.ui.registerSource("window-navi", "window", {
+    description: "window (only browser)",
+    windowtype: "navigator:browser",
+});
+
+piyo.ui.registerSource("window-2", "window-navi", {
+    commands: function (commands) {
+        commands.stop = true;
+        commands.add(["select"], "", function (args, modifiers) {
+            let win = modifiers.items[0].item.win;
+
+            liberator.assert(win != window, "Can't reattach to the same window");
+
+            let browser = win.gBrowser;
+            modifiers.user.tabs.forEach(function (src) {
+                let dest = browser.addTab("about:blank");
+                browser.stop();
+                browser.docShell;
+                browser.selectedTab = dest;
+                browser.swapBrowsersAndCloseOther(dest, src);
+            });
+            win.focus();
+        });
+    }
+});

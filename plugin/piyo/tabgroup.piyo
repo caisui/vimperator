@@ -1,0 +1,32 @@
+// vim:set ft=javascript sw=4 ts=4 et :
+
+ui.registerSource("tabgroup", {
+    title: "tab group",
+    description: "tab group (only Firefox 4)",
+    keys: ["title"],
+    default: "select",
+    createView: function (item, hi)
+        <tr><td class="mark"/><td style="color:blue;font-weight:bold;">{item.state}</td><td><img src={item.icon}/></td><td>{item.title}</td></tr>,
+    generator: function () {
+        if (!TabView._window) return (x for(x in Iterator([])));
+        let gi = TabView._window.GroupItems;
+        let groups = gi.groupItems;
+        let proto = {
+            get title() this.item.getTitle() || "(Undefined)",
+            icon: "resource://gre/res/html/folder.png",
+            get state() {
+                let s = "";
+                if (gi._activeGroupItem === this.item)
+                    s += "%";
+                return s;
+            },
+            active: function () gi.setActiveGroupItem(this.item),
+        };
+        return ({__proto__: proto, item: g} for ([,g] in Iterator(groups)));
+    },
+    commands: function (commands) {
+        commands.add("sel[ect]", "select tab group", function (args, modifiers) {
+            gBrowser.selectedTab = modifiers.items[0].item.item._activeTab.tab;
+        });
+    },
+});
