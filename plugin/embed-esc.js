@@ -1,6 +1,6 @@
 // vim:set sw=4 ts=4 fdm=marker:
 var INFO = //{{{
-<plugin name="embed-esc" version="0.0.2"
+<plugin name="embed-esc" version="0.0.3"
         href="http://github.com/caisui/vimperator/blob/master/plugin/embed-esc.js"
         summary="Embed Esc"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -45,7 +45,9 @@ var INFO = //{{{
     </item>
 </plugin>; //}}}
 (function () {
-    Cu.import("resource://gre/modules/ctypes.jsm");
+    let scope = {};
+    Cu.import("resource://gre/modules/ctypes.jsm", scope);
+    const ctypes = scope.ctypes;
 
     const INT32 = ctypes.int32_t;
     const SHORT = ctypes.short || ctypes.int16_t;
