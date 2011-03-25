@@ -220,33 +220,29 @@ var INFO = //{{{
             commandline.updateMorePrompt();
         }
 
+        commandline.input(<>[{selector}]:</>, function (arg){
+            let args = [];
+            let list = hints._pageHints;
+            let matcher = new MulitHintMatcher(arg);
+            for (let i in util.range(0, list.length)) {
+                if (matcher.match(i + 1))
+                    args.push(list[i].elem);
+            }
 
-        commandline.setTimeout(function () {
-            commandline.input(<>[{selector}]:</>.toString(), function (arg) {
-                liberator.threadYield(true);
-                let args = [];
-                let list = hints._pageHints;
-                let matcher = new MulitHintMatcher(arg);
-                for (let i in util.range(0, list.length)) {
-                    if (matcher.match(i + 1))
-                        args.push(list[i].elem);
-                }
-
-                if (args.length > 0) {
-                    let history = storage[historyQuery];
-                    history.mutate("filter", function (line) (line.value || line) != selector);
-                    history.push({
-                        value: selector,
-                        host: content.location.host
-                    });
-                    action(args);
-                }
-                onEscape();
-            },
-            {
-                onCancel: onEscape
-            });
-        }, 0);
+            if (args.length > 0) {
+                let history = storage[historyQuery];
+                history.mutate("filter", function (line) (line.value || line) != selector);
+                history.push({
+                    value: selector,
+                    host: content.location.host
+                });
+                action(args);
+            }
+            onEscape();
+        },
+        {
+            onCancel: onEscape
+        });
     },
     {
         literal: 1,
