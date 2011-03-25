@@ -242,6 +242,8 @@ lazyGetter(this, "subCmds", function () [
             if (warn(item, messageIsNotFound(id))) return;
             if (!item.mozMatchesSelector(toolbarSpecialItemSelector))
                 gNavToolbox.palette.appendChild(item);
+            else
+                item.parentNode.removeChild(item);
         });
         customizeToolbarFinish();
     }, {//extra
