@@ -165,13 +165,14 @@ lazyGetter(this, "toolbaritemProcess", function () [
 
 function updateToolbarVisisble(names, visible) {
     let func = visible === void(0)
-        ? function (item, attr) item.setAttribute(attr, item.getAttribute(attr) === "true" ? false : true)
-        : function (item, attr) item.setAttribute(attr, !visible)
+        ? function (item) item.getAttribute(item.getAttribute("type") === "menubar" ? "autohide" : "collapsed") === "true"
+        : function (item) visible;
     Array.forEach(names, function (name) {
         let item = getToolbarById(name);
         if (warn(item, messageIsNotFound(name)))
             return;
-        func(item, item.getAttribute("type") === "menubar" ? "autohide" : "collapsed");
+
+        setToolbarVisibility(item, func(item));
     });
 }
 
