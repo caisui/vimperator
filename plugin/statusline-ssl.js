@@ -1,3 +1,25 @@
+// vim:set sw=4 ts=4 et:
+var INFO = //{{{
+<plugin name="statusline-ssl" version="0.0.1"
+        href="http://github.com/caisui/vimperator/blob/master/plugin/statusline-ssl.js"
+        summary="status line SSL"
+        xmlns="http://vimperator.org/namespaces/liberator">
+    <author href="http://d.hatena.ne.jp/caisui">caisui</author>
+    <license href="http://www.opensource.org/licenses/bsd-license.php">New BSD License</license>
+    <project name="Vimperator" minVersion="3.0"/>
+    <item>
+        <description>
+            <p>
+                statusline を vimperator 2.x の ときのように SSL の状態で highlight が 変わるようにします。
+            </p>
+
+            <note> rc file には autocmd 経由で 設定する必要があります</note>
+            <example>
+                autocmd VimperatorEnter ".*" :highlight StatusLineSecure -append font-weight: bold;
+            </example>
+        </description>
+    </item>
+</plugin>; //}}}
 (function () {
     highlight.loadCSS(<![CDATA[
         StatusLineBroken    color: black; background: #FFa0a0 /* light-red */
