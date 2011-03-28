@@ -24,6 +24,10 @@ var INFO = //{{{
       <default>false</default>
       <description>
         animation の ON/OFF
+        <note> rc file には autocmd 経由で 設定する必要があります</note>
+        <example>
+        :autocmd VimperatorEnter ".*" set [no]overlayanimation
+        </example>
       </description>
     </item>
 </plugin>; //}}}
