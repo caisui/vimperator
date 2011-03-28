@@ -1,6 +1,6 @@
 // vim:set sw=4 ts=4 et:
 var INFO = //{{{
-<plugin name="liberator-overlay-ext" version="0.1.1"
+<plugin name="liberator-overlay-ext" version="0.1.0"
         href="http://github.com/caisui/vimperator/blob/master/plugin/liberator-overlay-ext.js"
         summary="liberator overlay"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -24,15 +24,6 @@ var INFO = //{{{
       <default>false</default>
       <description>
         animation の ON/OFF
-      </description>
-    </item>
-    <item>
-      <tags> default_overlayanimation </tags>
-      <spec> let default_overlayanimation </spec>
-      <type>boolean</type>
-      <default>false</default>
-      <description>
-        .vimperatorrc 読込時 に optionでON/OFF 制御できないため overlayanimation の初期値を指定
       </description>
     </item>
 </plugin>; //}}}
@@ -112,9 +103,6 @@ var INFO = //{{{
         vbox.unwatch("height");
         vbox.unwatch("collapsed");
     }
-
-    if (liberator.globalVariables.default_overlayanimation)
-        options.overlayanimation = true;
 
     self.onUnload = function () {
         options.overlayanimation = false;
