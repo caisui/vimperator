@@ -8,10 +8,43 @@ var INFO = //{{{
     <license href="http://www.opensource.org/licenses/bsd-license.php">New BSD License</license>
     <project name="Vimperator" minVersion="3.0"/>
     <item>
+        <spec> :toolbar <a>subcmd</a> <oa><a>toolbarname</a>…</oa></spec>
         <tags> :toolbar </tags>
-        <spec> :toolbar [sub command]...</spec>
         <description>
             Toolbar を CustomizeToolbar と 同程度な 編集を command で実現
+            <dl>
+            <dt>create</dt> <dd><a>toolbarname</a>を作成</dd>
+            <dt>remove</dt> <dd><a>toolbarname</a>を削除</dd>
+            <dt>show</dt>   <dd><a>toolbarname</a>を表示(複数可)</dd>
+            <dt>hide</dt>   <dd><a>toolbarname</a>を非表示(複数可)</dd>
+            <dt>toggle</dt> <dd><a>toolbarname</a>をトグル表示(複数可)</dd>
+            </dl>
+        </description>
+    </item>
+    <item>
+        <spec> :toolbar <a>toolbarname</a> <a>subcmd</a> <oa><a>items</a>…</oa></spec>
+        <tags> :toolbar </tags>
+        <description>
+            <dl>
+            <dt>add</dt>    <dd><a>toolbarname</a>に<oa><a>item</a>…</oa>を追加  <a>-before <a>item</a></a>? で挿入位置を指定</dd>
+            <dt>remove</dt> <dd><a>toolbarname</a>に<oa><a>item</a>…</oa>を削除</dd>
+            <dt>set</dt>    <dd><a>toolbarname</a>のアイテム一覧を再定義</dd>
+            </dl>
+        </description>
+    </item>
+    <item>
+        <spec> :toolbar <a>subcmd</a></spec>
+        <tags> :toolbar </tags>
+        <description>
+            <dl>
+            <dt>customize</dt>  <dd>customize モードをトグルします。用途不明です</dd>
+            <dt>mode</dt>       <dd><dl>
+                                    <dt>icons</dt><dd>icon 表示に変更</dd>
+                                    <dt>full</dt> <dd>icon とtext表示に変更</dd>
+                                    <dt>text</dt> <dd>text 表示に変更</dd>
+                                </dl></dd>
+            <dt>dialog</dt>     <dd>Customize Window を 表示</dd>
+            </dl>
         </description>
     </item>
 </plugin>; //}}}
