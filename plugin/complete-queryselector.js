@@ -1,6 +1,6 @@
 // vim: set sw=4 ts=4 et :
 var INFO = //{{{
-<plugin name="complete-queryselector" version="0.0.1"
+<plugin name="complete-queryselector" version="0.0.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/complete-queryselector.js"
         summary="complete queryselector"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -330,7 +330,7 @@ function complete(context, obj) {
                 tags.push(node.tagName.toLowerCase());
                 Array.prototype.push.apply(attr, Array.map(node.attributes, function (a) a.name));
                 //Fx3.6 NG classList
-                Array.prototype.push.apply(clas, Array.slice(node.classList));
+                Array.prototype.push.apply(clas, Array.slice(node.classList || []));
                 if (node.id) ids.push(node.id);
             });
         } catch (ex) {
