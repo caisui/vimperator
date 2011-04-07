@@ -1,6 +1,6 @@
 // vim:set sw=4 ts=4 et:
 var INFO = //{{{
-<plugin name="liberator-overlay-ext" version="0.1.1"
+<plugin name="liberator-overlay-ext" version="0.1.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/liberator-overlay-ext.js"
         summary="liberator overlay"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -80,7 +80,8 @@ var INFO = //{{{
             Array.forEach(document.querySelectorAll(".liberator-overlay"), function (e) {
                 let nm = newVal ? "add" : "remove";
                 e.classList[nm]("animation");
-                e[nm + "EventListener"]("transitionend", updatePrompt, false);
+                if (commandline.updatePrompt)
+                    e[nm + "EventListener"]("transitionend", updatePrompt, false);
             });
             return newVal;
         },
