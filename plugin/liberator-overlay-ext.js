@@ -1,6 +1,6 @@
 // vim:set sw=4 ts=4 et:
 var INFO = //{{{
-<plugin name="liberator-overlay-ext" version="0.1.0"
+<plugin name="liberator-overlay-ext" version="0.1.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/liberator-overlay-ext.js"
         summary="liberator overlay"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -14,6 +14,14 @@ var INFO = //{{{
 
                 また、表示 box には、userStyle Sheet で 利用できるよう class 属性 に "liberator-overlay"が 付与しています。
                 Firefox 4b7 以上推奨
+            </p>
+            <p>
+                補完リストの背面を見る方法
+            </p><p>
+                vimperatorrc  に 以下コードを追加でトグル表示できます。
+                <example><ex><![CDATA[
+                    :js mappings.addUserMap([modes.COMMAND_LINE], ["<C-g>"], "", function () plugins.liberatorOverlayExt.toggleShowBackground());
+                ]]></ex></example>
             </p>
         </description>
     </item>
@@ -37,8 +45,20 @@ var INFO = //{{{
         .liberator-overlay {
             position: fixed;
             width: 100%;
-            max-height: 80%;
+            height: 100%;
+            max-height: 10px;
             min-height: 10px;
+        }
+        .liberator-overlay.animation[collapsed='true'] {
+            opacity: 0;
+            background-color: black;
+            pointer-events: none;
+            visibility: visible;
+            max-height: 0px !important;
+        }
+        .liberator-overlay.showcontent:not([collapsed='true']) {
+            opacity: .2;
+            pointer-events: none;
         }
 
         #liberator-completions, #liberator-multiline-output {
@@ -50,7 +70,7 @@ var INFO = //{{{
             width: 100%;
         }
         .liberator-overlay.animation {
-            -moz-transition: height .1s;
+            -moz-transition: all .2s;
         }]]>;
 
     document.documentElement.appendChild(style);
@@ -74,13 +94,20 @@ var INFO = //{{{
     }
 
     function watchHeight(id, oldVal, newVal) {
-        this.style.height = /^[0-9.]+$/.test(newVal) ? newVal + "px" : newVal;
+        let curHeight = parseInt(this.clientHeight);
+        let newHeight = Math.min(parseInt(newVal), 0.8 * window.innerHeight);
+
+        if (curHeight < newHeight) {
+            this.style.maxHeight = newHeight + "px";
+        }
+
         return newVal;
     }
 
     function watchCollapsed(id, oldVal, newVal) {
         if (newVal === true) {
-            this.style.height = "1px";
+            this.style.maxHeight = "1px";
+            this.classList.remove("showcontent");
         } else {
             let e = document.getElementById("liberator-bottombar") || document.getElementById("status-bar");
             this.style.bottom = (document.documentElement.boxObject.height - e.boxObject.y) + "px";
@@ -104,10 +131,30 @@ var INFO = //{{{
     function unwatchEvent (id) {
         let vbox = document.getElementById(id).parentNode;
         vbox.classList.remove("liberator-overlay");
+        vbox.classList.remove("showcontent");
         vbox.unwatch("height");
         vbox.unwatch("collapsed");
+        vbox.style.maxHeight = "";
     }
 
+    self.toggleShowBackground = function _toggleBackground() {
+        let box1 = document.getElementById(liberatorCompletions).parentNode;
+        let box2 = document.getElementById(liberatorMultilineOutput).parentNode;
+
+        if (!(box1.collapsed || box2.collapsed)) {
+            if (!box1.classList.contains("showcontent"))
+                box1.classList.add("showcontent");
+            else if (!box2.classList.contains("showcontent"))
+                box2.classList.add("showcontent");
+            else {
+                box1.classList.remove("showcontent");
+                box2.classList.remove("showcontent");
+            }
+        } else if (!box1.collapsed)
+            box1.classList.toggle("showcontent");
+        else if (!box2.collapsed)
+            box2.classList.toggle("showcontent");
+    };
     self.onUnload = function () {
         options.overlayanimation = false;
         options.remove("oani");
