@@ -295,7 +295,7 @@
                 mode = m[1];
             }
         }
-    let option = <>{flags}{mode}</>.toString();
+        let option = <>{flags}{mode}</>.toString();
         let info = get_cache();
         if (info) {
             if (info.word === word && info.option === option) {
