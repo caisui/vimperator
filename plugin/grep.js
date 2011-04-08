@@ -556,6 +556,8 @@
     T.option.literal = 0;
     T.option.completer = function (context, args) {
         try {
+            if (!args[0])
+                return;
             let info = get_grep_info(args[0]);
             if (!info || info.list.length == 0) return;
 
