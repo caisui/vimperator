@@ -1,0 +1,51 @@
+// vim:set ft=javascript sw=4 ts=4 et :
+
+lazyGetter(this, "pm", function () Cc["@mozilla.org/permissionmanager;1"].getService(Ci.nsIPermissionManager));
+
+ui.registerSource("permission", {
+	title: "permission list",
+	description: "permission list",
+    keys: ["type", "host"],
+	createView: function (item, hi)
+		<tr><td class="mark"/><td>{item.type}</td><td>{hi.host}</td><td>{item.pn}</td><td>{item.expireType}</td><td>{item.exDate}</td></tr>,
+	generator: function () {
+        let proto = {
+            get mode() this.item.modes.map(function (n) let(m=modes.getMode(n)) m ? m.name : (n === 0 ? "NONE" : "?")),
+            //get mode() this.item.modes.join(","),
+            get name() this.item.names,
+            get names() this.item.names.join(","),
+            get description() this.item.description,
+            get defaultValue() this.item.defaultValue
+        };
+        var file = Cc["@mozilla.org/file/directory_service;1"]
+                             .getService(Ci.nsIProperties).get("ProfD", Ci.nsIFile);
+        file.append("permissions.sqlite");
+        const storageService = Cc["@mozilla.org/storage/service;1"].getService(Ci.mozIStorageService);
+        const num2name = {
+            1: "Allow",
+            2: "Deny",
+            4: "Session Deny",
+            8: "Session Allow"
+        };
+
+        let conn = storageService.openDatabase(file);
+        //for (let row in util.sqlquery(conn, <![CDATA[select * from moz_hosts]]>)) {
+        for (let row in iter(pm.enumerator)) {
+            row instanceof Ci.nsIPermission;
+            row.__proto__ = {
+                get pn() let (c = this.permission || this.capability) num2name[c] || c,
+                get exDate() let (t=this.expireTime) t ? new Date(this.expireTime) : ""
+            };
+            yield row;
+        }
+	},
+    commands: function (commands) {
+        commands.add(["remove", "rm", "delete", "del"], "remove item", function (args, modifiers) {
+            modifiers.items.forEach(function (item) {
+                let item = item.item;
+                pm.remove(item.host, item.type);
+            });
+        });
+    }
+});
+
