@@ -5,16 +5,17 @@ ui.registerSource("maps", {
 	description: "map list",
     keys: ["mode", "name", "description", "type"],
 	createView: function (item, hi)
-		<tr><td class="mark"/><td>{hi.mode}</td><td style={item.style}>{hi.name}</td><td>{item.names}</td><td>{hi.description}</td></tr>,
+		<tr><td class="mark"/><td>{hi.mode}</td><td>{item.chars}</td><td style={item.style}>{hi.name}</td><td>{item.names}</td><td>{hi.description}</td></tr>,
 	generator: function () {
         let cache = [];
         let proto = {
-            get mode() this.item.modes.map(function (n) let(m=modes.getMode(n)) m ? m.name : "?"),
+            get mode() this.item.modes.map(function (n) let(m=modes.getMode(n)) m ? m.name : (n === 0 ? "NONE" : "?")),
             //get mode() this.item.modes.join(","),
             get name() this.item.names,
             get names() this.item.names.join(","),
             get description() this.item.description + " " + (this.item.rhs || ""),
             get style() this.type === "_main" ? "color: blue": "",
+            get chars() this.item.modes.map(function (n) let(m=modes.getMode(n)) m ? (m.char || n) : "?").join(" "),
         };
         for (let [, type] in Iterator(["_main", "_user"]))
             for (let [, maps] in Iterator(mappings[type])) {
