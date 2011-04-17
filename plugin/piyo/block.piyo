@@ -1,0 +1,70 @@
+// vim:set ft=javascript sw=4 ts=4 et :
+
+ui.registerSource("block", {
+    title: "block",
+    description: "block",
+    keys: ["text"],
+    //createRoot: function () <table style="width:100%"/>,
+    //createView: function (item, hi) <tr><td class="mark"/><td>{hi.text}</td></tr>,
+    createRoot: function () <div style="width:100%"/>,
+    createView: function (item, hi) <div style="padding:.5em 0"><span class="mark"/><span class="ib" style="width:-moz-calc(100% - 2em);">{hi.text}</span></div>,
+    generator: function () {
+        let doc = content.document;
+        let treeWalker = doc.createTreeWalker(doc, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+            acceptNode: function (node) {
+                let result = NodeFilter.FILTER_ACCEPT;
+                if (node.nodeType == Node.ELEMENT_NODE) {
+                    if (node.getClientRects().length == 0)
+                        result = NodeFilter.FILTER_REJECT;
+                    else if (node.clientHeight == 0)
+                        result = NodeFilter.FILTER_SKIP;
+                }
+                return result;
+            }
+        }, false);
+
+        let create = util.lazyProto({
+            //get text() this.item.toString(),
+            //get text() this.item.data,
+            get text() this.item.map(function (t) t.data).join(""),
+        });
+        return this.iterCache("text", function () {
+            let block;
+            let list = [];
+            let node;
+
+            while (node = treeWalker.nextNode()) {
+                if (node.nodeType == Node.TEXT_NODE) {
+                    if (node.isElementContentWhitespacea) continue;
+                    list.push(node);
+                } else {
+                    if (block != node && list.length) {
+                        if (list.some(function (t) t.data.trim()))
+                            yield create(list);
+                        block = node;
+                        list = [];
+                    }
+                }
+            }
+            if (list.length)
+                yield create(list);
+        });
+    },
+    maps: [
+        PMap(["p"], "", function () {
+            let item = ui.selectedItem.item.item;
+            util.nodeScrollIntoView(item[0], 0, 0);
+        }),
+        PMap(["<Return>"], "", function () {
+            let item = ui.selectedItem.item.item[0];;
+            let doc = item.ownerDocument;
+            let win = doc.defaultView;
+            let r = doc.createRange();
+            r.setStart(item, 0);
+            ui.quit();
+            util.nodeScrollIntoView(item, 50, -1)
+            win.getSelection().addRange(r);
+            options.setPref("accessibility.browsewithcaret", true)
+        })
+    ]
+});
