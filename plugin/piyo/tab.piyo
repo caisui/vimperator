@@ -102,7 +102,40 @@ ui.registerSource("tab", {
                     tabs.reload(tab, args.bang);
                 });
         });
-    }
+    },
+    maps:[
+        PMap(["d"], "delete tab", function () {
+            ui.getMarkedOrSelectedItem().forEach(function (item) {
+                gBrowser.removeTab(item.item.tab);
+            });
+            ui.refresh();
+        }),
+        PMap(["p"], "preview tab", function () 
+            //alert([modes.main,Error().stack])||
+            (gBrowser.selectedTab = ui.selectedItem.item.tab)),
+        PMap(["gh", "g%"], "jump current tab", function () {
+            let tab = gBrowser.selectedTab;
+            ui.selectedItem.unselect();
+            ui.items.some(function (view, i) {
+                if (tab == view.item.tab) {
+                    ui.index = i;
+                    view.select();
+                    return true;
+                }
+            });
+        }),
+        PMap(["g#"], "jump current tab", function () {
+            let tab = gBrowser.selectedTab;
+            ui.selectedItem.unselect();
+            ui.items.some(function (view, i) {
+                if (view.item.state == "#") {
+                    ui.index = i;
+                    view.select();
+                    return true;
+                }
+            });
+        })
+    ],
 });
 
 // use migemo macther
