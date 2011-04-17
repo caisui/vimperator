@@ -4,6 +4,12 @@ piyo.ui.registerSource("places", {
     title: "places",
     description: "places source",
     keys: ["title", "uri"],
+    sql: <![CDATA[
+select
+mp.id, mp.url, mp.title, mp.favicon_id, mb.id
+from moz_places mp left outer join moz_bookmarks mb
+on mp.id = mb.fk and mb.title is not null
+]]>,
     createRoot: function () <div>
 <style><![CDATA[
 .item {display:relative;}
@@ -21,15 +27,10 @@ piyo.ui.registerSource("places", {
 <span class={item.bid === 0 ? "x" : "y"}>{"\u2605"}</span><span class="u">{hi.uri}</span></span>
 <span class="tag">[{item.tag}]</span>
 </div>,
-    generator: function (ui) {
+    generator: function (ui) { const self = this;return (obj for (obj in self.iterCache("place", function () {
         let conn = Cc["@mozilla.org/browser/nav-history-service;1"].getService(Ci.nsPIPlacesDatabase).DBConnection;
         let favicon = services.get("favicon");
-        let stmt = conn.createStatement(<![CDATA[
-select
-mp.id, mp.url, mp.title, mp.favicon_id, mb.id
-from moz_places mp left outer join moz_bookmarks mb
-on mp.id = mb.fk and mb.title is not null
-]]>);
+        let stmt = conn.createStatement(this.sql);
         let count = 0;
         let tagging = PlacesUtils.tagging;
         try {
@@ -59,6 +60,7 @@ on mp.id = mb.fk and mb.title is not null
         } finally {
             stmt.reset();
         }
+    })));
     },
     commands: function (commands) {
         commands.add(["t[abopen]"], "", function (args, modifiers) {
@@ -69,3 +71,4 @@ on mp.id = mb.fk and mb.title is not null
         });
     },
 });
+
