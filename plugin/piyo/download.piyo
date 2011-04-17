@@ -7,33 +7,6 @@ FROM moz_downloads
 ORDER BY (state <> 0), endTime DESC, startTime DESC
 ]]>.toString();
 
-function sqlquery(db, query, params) {
-    const fields = {
-        "INTEGER": "getInt64",
-        "TEXT": "getUTF8String",
-    };
-    try {
-        var stmt = db.createStatement(query);
-        var reader = [];
-
-        if (stmt.executeStep()) {
-            for (let i = 0, j = stmt.columnCount; i < j; ++i) {
-                let name = stmt. getColumnName(i);
-                let type = stmt.getColumnDecltype(i);
-                reader.push([name, fields[type]]);
-            }
-            do {
-                yield reader.reduce(function (obj, [n, t], i) {obj[n] = stmt[t](i); return obj;}, {});
-            } while (stmt.executeStep());
-        }
-    } catch (ex) {
-        Cu.reportError(ex);
-    } finally {
-        if (stmt)
-            stmt.reset();
-    }
-}
-
 ui.registerSource("download", {
     description: "download list",
     title: "dowload list",
@@ -56,7 +29,7 @@ ui.registerSource("download", {
             get $() this.item,
             get name() this.item.displayName
         };
-        for (let q in sqlquery(gDownloadMgr.DBConnection, query)) {
+        for (let q in util.sqlquery(gDownloadMgr.DBConnection, query)) {
             yield {__proto__: proto, item: gDownloadMgr.getDownload(q.id)};
         }
     },
