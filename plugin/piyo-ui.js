@@ -10,13 +10,37 @@ var INFO = //{{{
     <project name="Vimperator" minVersion="3.0"/>
     <item>
         <description>
-            ...
+            以下の機能を提供する UIです。
+            - 一覧の列挙
+            - 列挙したもの絞り込む
+            - 一覧から選択したものに対してコマンドを実行
         </description>
     </item>
 </plugin>;
+<>
+<![CDATA[
+ToDo:
+- fold 機能
+- stack 型多段 piyo
+- 複数の sourceに 跨ぐ選択状態での command
+- 折り返されずに文字が画面外にでる
+- word ハイライト(not 絞り込み)
+- view の 部分更新
+- 個別 source 専用 stylesheet
+-- 自source 以外には反映されない仕組み
+- source を他 plugin から 拡張する手段
+
+Done:
+- 下部の余白に「~」
+- source 固有map
+- command
+- 疑似非同期 item 列挙
+- 絞り込み検索
+- 否定検索
+]]></>;
 //}}}
 
-let interval = liberator.globalVariables.piyo_interval || 200;
+let interval = liberator.globalVariables.piyo_interval || 500;
 
 /**
  * @param {Object}  cocnsole log
@@ -25,10 +49,25 @@ function log() {
     let msg = Cc["@mozilla.org/scripterror;1"].createInstance(Ci.nsIScriptError);
     let stack = Components.stack.caller;
     //let category = "PIYO " + (new Date()).toLocaleFormat("%y.%m.%d-%H:%M:%S");
-    let category = "PIYO " + (new Date()).toLocaleFormat("%m%d %H:%M:%S");
-    let message = Array.concat(Array.splice(arguments, 0));
+    //let category = "PIYO " + (new Date()).toLocaleFormat("%m%d %H:%M:%S");
+    let category = "PIYO";
+    let message = Array.concat((new Date()).toLocaleFormat("%m%d %H:%M:%S"), Array.splice(arguments, 0));
     msg.init(message, stack.filename, stack.sourceLine, stack.lineNumber, null, 0, category);
     services.get("console").logMessage(msg);
+}
+
+function lazyGetter(obj, name, func) {
+    obj.__defineGetter__(name, function () {
+        delete this[name];
+        return this[name] = func.call(obj);
+    });
+}
+
+function lazyGetterSrvc(obj, name, classID, interface) {
+    obj.__defineGetter__(name, function() {
+        delete this[name];
+        return this[name] = Cc[classID].getService(interface);
+    });
 }
 
 /**
@@ -136,6 +175,7 @@ PiyoCommands.prototype.__defineGetter__("execute", function () {
     this.__defineGetter__("execute", function() exe);
     return exe;
 });
+let PMap = fx3 ? function () Map.apply(this, [[modes.PIYO]].concat(Array.slice(arguments))) : Map.bind(this, [modes.PIYO]);
 
 let PiyoUI = Class("PiyoUI", //{{{
 {
@@ -147,11 +187,12 @@ let PiyoUI = Class("PiyoUI", //{{{
         this._contexts = [];
         this.keep = false;
         this.original = "";
-        this.index = 0;
+        this._index = 0;
         this.editor = editor;
         this.items = [];
         this._filter = "";
         this._scripts = {};
+        this._cache = {};
 
         function NOP() void 0
         this.__defineGetter__("NOP", function() NOP);
@@ -168,8 +209,8 @@ let PiyoUI = Class("PiyoUI", //{{{
             let box = self.box;
             //if (force || box.style.height !== "0pt") {
                 if (box.clientHeight < self.doc.height) {
-                    box.style.height = self.doc.height + "px";
-                    box.style.maxHeight = 0.5 * window.innerHeight + "px";
+                    //box.style.height = self.doc.height + "px";
+                    box.style.maxHeight = Math.min(self.doc.height, 0.5 * window.innerHeight) + "px";
                 }
             //}
         });
@@ -180,6 +221,13 @@ let PiyoUI = Class("PiyoUI", //{{{
     get doc() this.iframe.contentDocument,
     get box() this.iframe.parentNode,
     get filter() this.editor.value,
+    get index() this._index,
+    set index(value) {
+        this._index = value;
+        let item = this.items[value];
+        if (!item) return;
+        mappings._user[modes.PIYO] = item.source.maps;
+    },
     get selectedItem() this.items[this.index],
     get style() //{{{
         <![CDATA[
@@ -187,7 +235,7 @@ let PiyoUI = Class("PiyoUI", //{{{
                 margin: 0;
                 padding: 0;
             }
-            body {
+            html {
                 overflow-x: hidden;
             }
             body * {
@@ -197,14 +245,14 @@ let PiyoUI = Class("PiyoUI", //{{{
                 min-height: 3ex;
             }
             .item {
-                background: rgba(255,255,255,.8);
+                background: rgba(255,255,255,.9);
             }
             .item:nth-child(even) {
-                background: rgba(244,244,244,.8);
+                background: rgba(244,244,244,.9);
             }
             /*xxx: [selected]?*/
             .item[selected] {
-                background: rgba(255,236,139,.8);
+                background: rgba(255,236,139,.9);
             }
             .mark {
                 padding-left: 1ex;
@@ -216,6 +264,9 @@ let PiyoUI = Class("PiyoUI", //{{{
             span.mark {
                 display: inline-block;
                 min-height: 0ex;
+            }
+            .ib {
+                display:inline-block;
             }
             .title {
                 text-align: left;
@@ -258,9 +309,13 @@ let PiyoUI = Class("PiyoUI", //{{{
     },
     abortAction: function () {
         let inf = this.abort;
+        this.abort = null;
         switch(inf.type) {
         case "filter":
             this.openAsync.apply(this, inf.args);
+            break;
+        case "quit":
+            this.quit();
             break;
         }
     },
@@ -286,10 +341,30 @@ let PiyoUI = Class("PiyoUI", //{{{
         this._buildItems(input, function () _createSource(self, source.split(" ")), modifiers);
     },//}}}
     list: function (input, source) {
+        log("list function is renamed input");
+        this.input(input, source);
+    },
+    input: function (input, source) {
         if (!input) input = "";
         this.editor.value = input;
         let creator = this.createSource("anonymouse", source);
         this._buildItems(input, function () {yield creator;});
+    },
+    push: function (input, source, modifiers) {
+        const self = this;
+        this._stack.push(
+        ["_contexts", "items", "index", "_filter", "_sources"]
+            .reduce(function (obj, name) {
+                obj[name] = self[name];
+            }));
+        this.input(input, source, modifiers);
+    },
+    pop: function () {
+        const self = this;
+        const popData = this.pop();
+        for (let[name,value] in Iterator(this._stack.pop()))
+            this[name] = value;
+        this.refresh();
     },
     showBox: function () {
         this.setTimeout(function () {
@@ -357,7 +432,7 @@ let PiyoUI = Class("PiyoUI", //{{{
             let duration = Date.now();
             item_generator: for (let source in sourceGenerator()) {
                 let items = [];
-                let context = source();
+                let context = source(source.name, this);
                 this._contexts.push(context);
 
                 // view
@@ -397,7 +472,7 @@ let PiyoUI = Class("PiyoUI", //{{{
                         self.setTimeout(function () {
                             this.abortAction();
                         }, 0);
-                        break;
+                        break item_generator;
                     }
                     context.items.push(item);
                     let hi = highlighter(item);
@@ -446,14 +521,23 @@ let PiyoUI = Class("PiyoUI", //{{{
         }
     },
     hide: function () {
-        this.box.style.height = 0;
-        this.iframe.innerHTML = "";
-        if (this.build) this.abort = true;
-        window.setTimeout(function () ui.box.collapsed = true, 0);
+        //window.setTimeout(function () ui.box.collapsed = true, 0);
     },
-    refresh: function () this.open(this.original, this.filter, this.modifiers),
+    refresh: function () this.openAsync(this.original, this.filter, this.modifiers),
     quit: function () {
+        if (this.build) {
+            this.abort = {
+                type: "quit",
+            };
+            return;
+        }
+        this._resizer.reset();
+        this._updateTimer.reset();
+        this.iframe.innerHTML = "";
+        this.box.style.maxHeight = 0;
         this.modifiers = {};
+        window.setTimeout(function() ui.box.collapsed = true, 0);
+        this._cache = {};
         this.hide();
         modes.reset();
     },
@@ -546,6 +630,11 @@ let PiyoUI = Class("PiyoUI", //{{{
     addAlias: function (name, aliases) {
         this._aliases[name] = aliases;
     },
+    getMarkedOrSelectedItem: function () {
+        let source = this.selectedItem.source;
+        let result = this.items.filter(function (i) i.source == source && i.mark);
+        return result.length > 0 ? result : [this.selectedItem];
+    },
     execute: function (command, modifiers) {
         if (!modifiers) modifiers = this.modifiers;
         let self = this;
@@ -563,6 +652,10 @@ let PiyoUI = Class("PiyoUI", //{{{
 
         if (!modifiers.noquit)
             this.quit();
+        else {
+            commandline._setCommand(filter);
+            ui._buildItems(filter, ui._source, ui.modifiers);
+        }
     },
     showHelp: function () {
         modes.push(modes.PIYO);
@@ -590,13 +683,18 @@ let PiyoUI = Class("PiyoUI", //{{{
         let name = file.leafName;
 
         let script;
-        if ((name in (this._scripts))  && ("onUnload" in (script = this._scripts[name])))
-            script.onUnload();
+        try {
+            if ((name in (this._scripts))  && ("onUnload" in (script = this._scripts[name])))
+                script.onUnload();
 
-        script = {__proto__: piyo};
-        log(<>load plugin: {file.leafName}</>);
-        liberator.loadScript(uri.spec, script);
-        this._scripts[name] = script;
+            script = {__proto__: piyo};
+            log(<>load plugin: {file.leafName}</>);
+            liberator.loadScript(uri.spec, script);
+            this._scripts[name] = script;
+        } catch (ex) {
+            Cu.reportError(ex);
+            liberator.echoerr(ex);
+        }
     },
     loadPiyos: function () {
         let dir = io.File(piyo.PATH).parent;
@@ -641,10 +739,12 @@ let PiyoUI = Class("PiyoUI", //{{{
 
 let PiyoSource = Class("PiyoSource", //{{{
 {
-    init: function () {
+    init: function (name, ui) {
         this.items  = [];
 
         if (this.onLoad) this.onLoad();
+
+        this._cache = ui._cache[name] || (ui._cache[name] = {});
 
         let stack = [];
         let self = this;
@@ -750,11 +850,33 @@ let PiyoSource = Class("PiyoSource", //{{{
             return null;
         };
     },
+    getCache: function (name, func) {
+        return this._cache[name] || (this._cache[name] = (func || Object).call(this));
+    },
+    iterCache: function (name, iter) {
+        let cache = this._cache[name];
+        if (cache) {
+            for (let [, obj] in Iterator(cache))
+                yield obj;
+        } else {
+            let list = [];
+            for (let obj in iter.call(this)) {
+                yield obj;
+                list.push(obj);
+            }
+            // 全て列挙したときのみ
+            this._cache[name] = list;
+        }
+    },
+    clearCache: function (name) {
+        delete this._cache[name];
+    },
     execute: function (command, modifiers) {
         if (command === "default")
             command = this.default;
         this._commands.execute(command, modifiers);
-    }
+    },
+    maps: [],
 }, {
     getAttrValue: function (obj, attr, name) {
         while (obj) {
@@ -857,11 +979,12 @@ let onUnload = (function () // {{{
         let style = document.createElementNS(XHTML, "style");
         style.innerHTML = <![CDATA[
             #liberator-piyo {
-                height: 0;
+                height: 100%;
+                max-height: 10px;
                 min-height: 10px;
             }
             #liberator-piyo.animate {
-                -moz-transition: all .1s;
+                -moz-transition: all .2s;
             }
             #liberator-piyo.overlay {
                 position: fixed;
@@ -873,8 +996,15 @@ let onUnload = (function () // {{{
                 width: 100%;
                 color: black;
             }
+            #liberator-piyo.animate[collapsed='true'] {
+                max-height: 0px !important;
+                opacity: 0;
+                background-color: black;
+                pointer-events: none;
+            }
             #liberator-piyo-iframe.deactive {
-                opacity: .4;
+                opacity: .8;
+                background-color: black;
             }
         ]]>;
 
@@ -937,17 +1067,34 @@ let onUnload = (function () // {{{
             } else if (newMode === modes.PIYO) {
                 ui.iframe.classList.remove("deactive");
             }
+            // xxx: tabs._onTabSelect 対策
+            else if (newMode === modes.NORMAL && oldMode === modes.PIYO) {
+                liberator.threadYield(true);
+                if (!ui.box.collapsed)
+                    for (let s = arguments.callee.caller; s; s = s.caller) {
+                        if (s === tabs._onTabSelect) {
+                            log("keep piyo");
+                            modes.set(modes.PIYO);
+                            if (fx3) {
+                                ui.box.collapsed = true;
+                                ui.setTimeout(function () ui.box.collapsed = false, 0);
+                            }
+                            break;
+                        }
+                    }
+            }
         }
         liberator.registerObserver("modeChange", modeChange);
         dispose.$push = function () liberator.unregisterObserver("modeChange", modeChange);
     //}}}
 
     // {{{ mapping
+    // xxx: mode の 削除が困難なため、上書き想定で処理
     if (!modes.hasOwnProperty("PIYO")) {
         modes.addMode("PIYO", {char: "p"});
         modes.addMode("PIYO_I", {char: "pi", input: true, display: -1});
     }
-    modes._modeMap[modes.PIYO].display =
+    modes.getMode(modes.PIYO).display =
         function() <>PIYO #{ui.editor.value}# {ui.rowStateE4X}</>;
 
     [ //mapping PIYO
@@ -1010,11 +1157,20 @@ let onUnload = (function () // {{{
     [ // mapping PIYO_I
         [["<C-n>"], "down", function () ui.scroll( 1, true)],
         [["<C-p>"], "up", function () ui.scroll(-1, true)],
-        [["<Esc>", "<Return>"], "escape PIYO_I", function () modes.set(modes.PIYO)],
+        [["<Esc>", "<Return>"], "escape PIYO_I", function () {
+            modes.set(modes.PIYO)
+            commandline.hide();
+        }],
         [["<C-Return>"], "execute", function () { ui.execute(); }],
     ].forEach(function (m) {
         mappings.add.apply(mappings, [[modes.PIYO_I]].concat(m));
     });
+    // modes.INSERT から map の コピー
+    // xxx: 意図してMap.modes に 登録してない
+    let (maps = mappings._main[modes.PIYO_I])
+        ["w", "u", "k", "a", "e", "h"].forEach(function (name) {
+            maps.push(mappings.get(modes.INSERT, "<C-" + name + ">"));
+        });
     // }}}
 
     delete dispose.$push;
@@ -1116,8 +1272,76 @@ let util = {
         });
         return liberator.eval(<![CDATA[(function () function (item, hi) xml)()]]>
             .toString().replace("xml", "<tr>" + array.join("") + "</tr>"), scope);
-    }
+    },
+    sqlquery: function sqlquery(db, query, params) {
+        const fields = {
+            "INTEGER": "getInt64",
+            "TEXT": "getUTF8String",
+        };
+        try {
+            var stmt = db.createStatement(query);
+            var reader = [];
+
+            if (stmt.executeStep()) {
+                for (let i = 0, j = stmt.columnCount; i < j; ++i) {
+                    let name = stmt.getColumnName(i);
+                    let type = stmt.getColumnDecltype(i);
+                    reader.push([name, fields[type]]);
+                }
+                do {
+                    yield reader.reduce(function (obj, [n, t], i) {obj[n] = stmt[t](i); return obj;}, {});
+                } while (stmt.executeStep());
+            }
+        } catch (ex) {
+            Cu.reportError(ex);
+        } finally {
+            if (stmt)
+                stmt.reset();
+        }
+    },
+    lazyProto: function (base) {
+        let proto = new Object();
+        if (fx3)
+        for (let name in base) {
+            let getter = base.__lookupGetter__(name);
+            if (getter) {
+                proto.__defineGetter__(name, getter);
+            } else
+                proto[name] = base[name];
+        } else
+        Object.getOwnPropertyNames(base).forEach(function (name) {
+            let getter = base.__lookupGetter__(name);
+            if (getter) {
+                proto.__defineGetter__(name, function () {
+                    let value = getter.call(this);
+                    Object.defineProperty(this, name, {
+                        value: value,
+                        writable: false,
+                    });
+                    return value;
+                });
+            } else
+                proto[name] = base[name];
+        });
+        return function _lazyProto(obj) ({__proto__: proto, item: obj});
+    },
 };
+
+/// fx3
+if (fx3) {
+lazyGetter(util, "names", function () function (obj) [a for(a in obj)]);
+lazyGetter(util, "desc", function () function (obj) function(obj, name) {
+    let result = {
+        getter: obj.__lookupGetter__(name),
+        setter: obj.__lookupSetter__(name)
+    };
+    result.value = (!result.setter && !result.getter) ? obj[name] : null;
+    return result;
+});
+} else {
+lazyGetter(util, "names", function () Object.getOwnPropertyNames.bind(Object));
+lazyGetter(util, "desc", function () Object.getOwnPropertyDescriptor.bind(Object));
+}
 
 commands.addUserCommand(["pi[yo]"], "piyo command", function (args) {
     if (args["-force"]) {
