@@ -14,10 +14,13 @@ ui.registerSource("pref", {
             get style() let(u=this.isUser)<>color:{u ? "black" : "gray"};font-weight:{u ? "bold" : "normal"}</>
         };
 
-        let list = services.get("pref").getChildList("",{});
+        let list = this.getCache("pref", function () {
+            let list = services.get("pref").getChildList("",{});
 
-        //xxx:
-        list.sort();
+            //xxx:
+            list.sort();
+            return list;
+        });
 
         return ({
             __proto__: proto,
