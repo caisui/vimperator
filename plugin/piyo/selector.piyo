@@ -62,6 +62,18 @@ commands.addUserCommand(["pse[lector]"], "", function (args) {
                 });
             });
         },
+        maps: [
+            PMap(["p"], "focus", function () {
+                let node = ui.selectedItem.item.node;
+                util.nodeScrollIntoView(node, 0, -1);
+            }),
+            PMap(["o"], "open background", function () {
+                let node = ui.selectedItem.item.node;
+                let menu = util.getContextMenu();
+                menu.setTarget(node);
+                menu.openLinkInTab();
+            }),
+        ]
     });
 }, {
     literal: 0,
