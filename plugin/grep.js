@@ -593,7 +593,7 @@
             obj[attr] = ret;
         }
 
-        map = mappings.get(modes.NORMAL, "/");
+        let map = mappings.get(modes.NORMAL, "/");
         hook_function(map, "action", function() {
             let info = get_cache();
             if (info) info.enabled = false;
