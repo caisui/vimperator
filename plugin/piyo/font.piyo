@@ -1,0 +1,25 @@
+// vim: set ft=javascript :
+
+let word = "abcABC123456";
+ui.registerSource("font", {
+    createView: function (i, h) <tr style={this.style}><td class="mark"/><td>{h.name}</td><td style={i.style}>{word}</td></tr>,
+    keys: ["name"],
+    get style() <>font-size: 3em;white-space: nowrap;</>,
+    generator: function () {
+        return this.iterCache("item", function () {
+            let creator = util.lazyProto({
+                get name() this.item,
+                get style() <>font-family: {this.name};</>.toString(),
+            });
+            for (let [,name] in Iterator(Cc["@mozilla.org/gfx/fontenumerator;1"]
+                .getService(Ci.nsIFontEnumerator).EnumerateAllFonts({})))
+                yield creator(name);
+        });
+    },
+    commands: function (commands) {
+        commands.add("word", "", function (args, modifiers) {
+            word = args[0];
+            modifiers.noquit = true;
+        }, {literal: 0});
+    },
+});
