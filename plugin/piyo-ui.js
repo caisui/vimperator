@@ -353,18 +353,23 @@ let PiyoUI = Class("PiyoUI", //{{{
     push: function (input, source, modifiers) {
         const self = this;
         this._stack.push(
-        ["_contexts", "items", "index", "_filter", "_sources"]
-            .reduce(function (obj, name) {
-                obj[name] = self[name];
-            }));
+        // xxx: 現仕様では、_source から 再作成する必要があるため、_contexts, items, index は 再利用できない
+        ["_filter", "_source", "_cache",
+            //"_contexts", "items", "index"
+        ].reduce(function (obj, name) {
+            obj[name] = self[name];
+            return obj;
+        }, {}));
+        // cache の クリア
+        this._cache = {};
         this.input(input, source, modifiers);
     },
     pop: function () {
         const self = this;
-        const popData = this.pop();
-        for (let[name,value] in Iterator(this._stack.pop()))
+        for (let[name, value] in Iterator(this._stack.pop()))
             this[name] = value;
-        this.refresh();
+        this.editor.value = this._filter;
+        this._buildItems(this._filter, this._source, null);
     },
     showBox: function () {
         this.setTimeout(function () {
@@ -459,7 +464,7 @@ let PiyoUI = Class("PiyoUI", //{{{
                 // items offset
                 context.offset = items.length;
                 let nextUpdate = Date.now() + interval;
-                let max = cnt = 0, min = Infinity;
+                let max = 0, cnt = 0, min = Infinity;
                 for (let item in iterItem) {
                     var aCnt = 0;
                     while (thread.processNextEvent(false)) aCnt ++;
@@ -853,6 +858,7 @@ let PiyoSource = Class("PiyoSource", //{{{
     getCache: function (name, func) {
         return this._cache[name] || (this._cache[name] = (func || Object).call(this));
     },
+    setCache: function (name, obj) this._cache[name] = obj,
     iterCache: function (name, iter) {
         let cache = this._cache[name];
         if (cache) {
@@ -1222,7 +1228,7 @@ let util = {
         var re = new RegExp(word, "gi");
         return function (text) {
             re.lastIndex = 0;
-            let list = [];
+            let list = [], m;
             while (m = re.exec(text)) {
                 list.push({pos: m.index, len: m[0].length});
                 if (m[0].length === 0) break;
@@ -1250,7 +1256,7 @@ let util = {
         var re = migemo.getRegExp(word, "gi");
         return function (text) {
             re.lastIndex = 0;
-            let list = [];
+            let list = [], m;
             while (m = re.exec(text))
                 list.push({pos: m.index, len: m[0].length});
             return list;
@@ -1299,8 +1305,12 @@ let util = {
                 stmt.reset();
         }
     },
-    lazyProto: function (base) {
+    lazyProto: function (base, parent) {
         let proto = new Object();
+
+        if (parent)
+            proto.__proto__ = parent;
+
         if (fx3)
         for (let name in base) {
             let getter = base.__lookupGetter__(name);
@@ -1323,7 +1333,12 @@ let util = {
             } else
                 proto[name] = base[name];
         });
-        return function _lazyProto(obj) ({__proto__: proto, item: obj});
+        function constructor(item) {
+            let obj = {__proto__: constructor.prototype, item: item};
+            return obj;
+        }
+        constructor.prototype = proto;
+        return constructor;
     },
 };
 
