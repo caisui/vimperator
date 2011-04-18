@@ -1,0 +1,26 @@
+// vim:set ft=javascript :
+
+lazyGetterSrvc(this, "categoryManager", "@mozilla.org/categorymanager;1", Ci.nsICategoryManager);
+
+ui.registerSource("category", {
+    title: "category",
+    createView: function (i, h) <tr><td class="mark"/><td>{h.data}</td></tr>,
+    keys: ["data"],
+    generator: function () {
+        return this.iterCache("item", function () {
+            for (let c in iter(categoryManager.enumerateCategories()))
+                yield c.QueryInterface(Ci.nsISupportsCString);
+        });
+    },
+    maps: [
+        PMap(["p"], "", function () {
+            let category = ui.selectedItem.item.data;
+            modes.push(modes.PIYO);
+            liberator.echo(template.table("list",
+            [
+                c.data for (c in iter(categoryManager.enumerateCategory(category)))
+                    if (c instanceof Ci.nsISupportsCString)
+            ].map(function(a) [a])));
+        })
+    ]
+});
