@@ -1,7 +1,7 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 //"use strict";
 var INFO = //{{{
-<plugin name="piyo-ui" version="0.0.2"
+<plugin name="piyo-ui" version="0.0.3"
         href="http://github.com/caisui/vimperator/blob/master/plugin/piyo-ui.js"
         summary="piyo ui"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -207,10 +207,11 @@ let PiyoUI = Class("PiyoUI", //{{{
 
         this._resizer = new Timer(0, 300, function (force) {
             let box = self.box;
+            let docHeight = self.doc.documentElement.scrollHeight;
             //if (force || box.style.height !== "0pt") {
-                if (box.clientHeight < self.doc.height) {
+                if (box.clientHeight < docHeight) {
                     //box.style.height = self.doc.height + "px";
-                    box.style.maxHeight = Math.min(self.doc.height, 0.5 * window.innerHeight) + "px";
+                    box.style.maxHeight = Math.min(docHeight, 0.5 * window.innerHeight) + "px";
                 }
             //}
         });
