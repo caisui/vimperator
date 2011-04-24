@@ -4,7 +4,7 @@
 function inspect(object) {
     return {
         title: "inspect",
-        keys: ["name"],
+        keys: ["name", "e4x"],
         createView: function (i, h) <tr><td class="mark"/><td>{h.name}</td><td>{i.inf}</td><td>{i.e4x}</td></tr>,
         generator: function () {
             let create = util.lazyProto({
@@ -53,14 +53,18 @@ function inspect(object) {
             PMap(["<BS>"], "", function () {
                 if (ui._stack.length > 0)
                     ui.pop();
-            })
+            }),
+            PMap(["e"], "echo value", function () {
+                ui.echo(<pre>{object[ui.selectedItem.item.name]}</pre>);
+            }),
         ],
     };
 }
 
-commands.addUserCommand(["pins[pect]"], "inspect result object", function (args) {
+commands.addUserCommand(["pecho"], "inspect result object", function (args) {
     let result = liberator.eval(args[0]);
     ui.input("", inspect(result));
 }, {
+    literal: 0,
     completer: completion.javascript,
 }, true);
