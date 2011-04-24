@@ -1,7 +1,7 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 //"use strict";
 var INFO = //{{{
-<plugin name="piyo-ui" version="0.0.3"
+<plugin name="piyo-ui" version="0.0.4"
         href="http://github.com/caisui/vimperator/blob/master/plugin/piyo-ui.js"
         summary="piyo ui"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -12,7 +12,7 @@ var INFO = //{{{
         <description>
             以下の機能を提供する UIです。
             - 一覧の列挙
-            - 列挙したもの絞り込む
+            - 列挙したものを絞り込む
             - 一覧から選択したものに対してコマンドを実行
         </description>
     </item>
@@ -29,6 +29,14 @@ ToDo:
 - 個別 source 専用 stylesheet
 -- 自source 以外には反映されない仕組み
 - source を他 plugin から 拡張する手段
+- 単一選択用/複数選択用 map/command を 認識できる手段
+- 固有 map 一覧の確認方法
+
+Bug:
+- 候補生成途中でui.quit で、collapsed=trueに失敗することがある。
+- 高さ調整が上手くいかないパターンがある
+- 表示候補数0でmap, commandが 動かない
+
 
 Done:
 - 下部の余白に「~」
@@ -193,6 +201,7 @@ let PiyoUI = Class("PiyoUI", //{{{
         this._filter = "";
         this._scripts = {};
         this._cache = {};
+        this.async = true;
 
         function NOP() void 0
         this.__defineGetter__("NOP", function() NOP);
@@ -207,11 +216,12 @@ let PiyoUI = Class("PiyoUI", //{{{
 
         this._resizer = new Timer(0, 300, function (force) {
             let box = self.box;
-            let docHeight = self.doc.documentElement.scrollHeight;
             //if (force || box.style.height !== "0pt") {
-                if (box.clientHeight < docHeight) {
+                var docHeight = Math.min(self.doc.documentElement.scrollHeight, 0.7 * window.innerHeight);
+                var maxHeight = parseFloat(box.style.maxHeight) || 0;
+                if (maxHeight < docHeight) {
                     //box.style.height = self.doc.height + "px";
-                    box.style.maxHeight = Math.min(docHeight, 0.5 * window.innerHeight) + "px";
+                    box.style.maxHeight = docHeight + "px";
                 }
             //}
         });
@@ -235,9 +245,6 @@ let PiyoUI = Class("PiyoUI", //{{{
             * {
                 margin: 0;
                 padding: 0;
-            }
-            html {
-                overflow-x: hidden;
             }
             body * {
                 padding: 1px 2px;
@@ -431,6 +438,7 @@ let PiyoUI = Class("PiyoUI", //{{{
 
             let doc = this.doc;
             let main = doc.getElementById("main");
+            let async = this.async;
             //if (this.box.collapsed) {
                 main.innerHTML = "";
             //}
@@ -468,7 +476,9 @@ let PiyoUI = Class("PiyoUI", //{{{
                 let max = 0, cnt = 0, min = Infinity;
                 for (let item in iterItem) {
                     var aCnt = 0;
-                    while (thread.processNextEvent(false)) aCnt ++;
+
+                    if (async)
+                        while (thread.processNextEvent(false)) aCnt ++;
                     max = Math.max(max, aCnt);
                     min = Math.min(min, aCnt);
                     cnt += aCnt;
@@ -521,6 +531,8 @@ let PiyoUI = Class("PiyoUI", //{{{
         } finally {
             this.build = false;
 
+            if (this.abort) return;
+
             this._updateStatus.tell();
             this._resizer.tell();
             this.showBox();
@@ -539,13 +551,15 @@ let PiyoUI = Class("PiyoUI", //{{{
         }
         this._resizer.reset();
         this._updateTimer.reset();
-        this.iframe.innerHTML = "";
-        this.box.style.maxHeight = 0;
         this.modifiers = {};
-        window.setTimeout(function() ui.box.collapsed = true, 0);
         this._cache = {};
         this.hide();
-        modes.reset();
+        window.setTimeout(function() {
+            ui.box.collapsed = true
+            ui.box.style.maxHeight = 0;
+            //liberator.threadYield(true);
+            modes.reset();
+        }, 0);
     },
     createContext: function (source, offset, proto) {
         if (typeof(source) === "string")
@@ -730,7 +744,13 @@ let PiyoUI = Class("PiyoUI", //{{{
             this.abort = null;
         }
     },
-    echo:    function () let(args = Array.splice(arguments, 0)) this.setTimeout(function () liberator.echo.apply(liberator, args), 0),
+    echo: function () {
+        // required check modes.PIYO?
+        
+        modes.push(modes.PIYO);
+        liberator.echo.apply(liberator, arguments);
+    },
+    echoAsync:    function () let(args = Array.splice(arguments, 0)) this.setTimeout(function () liberator.echo.apply(liberator, args), 0),
     echoerr: function () let(args = Array.splice(arguments, 0)) this.setTimeout(function () liberator.echoerr.apply(liberator, args), 0),
     get rowStateE4X() <>[{this.index + 1}/{this.items.length}{this.build ? "*" : ""}]</>,
     updateStatus: function () {
@@ -989,6 +1009,9 @@ let onUnload = (function () // {{{
                 height: 100%;
                 max-height: 10px;
                 min-height: 10px;
+                border-top: 1px solid rgba(128,128,128,.5);
+                border-bottom: 1px solid rgba(128,128,128,.5);
+                -moz-box-sizing: content-box;/*border-box;*/
             }
             #liberator-piyo.animate {
                 -moz-transition: all .2s;
@@ -1018,11 +1041,13 @@ let onUnload = (function () // {{{
         iframe.appendChild(style);
 
         let onceIframe = domAddEventListener(iframe, "load", function () {
+            iframe.contentDocument.documentElement.id = "piyohtml"
             iframe.contentDocument.body.id = "liberator-piyo-content";
             ui.initUI();
             onceIframe();
         }, true);
-        iframe.setAttribute("src", "chrome://liberator/content/buffer.xhtml");
+        let bufferURI = "chrome://liberator/content/buffer.xhtml";
+        iframe.setAttribute("src", bufferURI);
 
         dispose.$push = proxyClass(modules.events, {
             onFocusChange: function (event) {
@@ -1179,6 +1204,12 @@ let onUnload = (function () // {{{
             maps.push(mappings.get(modes.INSERT, "<C-" + name + ">"));
         });
     // }}}
+
+
+    let (name = "piyoNoScrollbar") {
+        styles.addSheet(true, name, bufferURI, "html|html > xul|scrollbar { visibility: collapse !important; }", true);
+        dispose.$push = function ()  styles.removeSheet(true, name);
+    }
 
     delete dispose.$push;
     return function () {
