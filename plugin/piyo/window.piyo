@@ -66,7 +66,23 @@ piyo.ui.registerSource("window", {
                 liberator.assert(doc, "not found document object");
                 window.inspectDOMDocument(doc);
             });
-    }
+    },
+    maps: [
+        PMap(["d"], "", function () {
+            ui.getMarkedOrSelectedItem().forEach(function (e) {
+                let win = e.item.win;
+                if (win.closed) return;
+
+                if ("BrowserTryToCloseWindow" in win)
+                    win.BrowserTryToCloseWindow();
+                else
+                    win.close();
+            });
+
+            if (!window.closed)
+                ui.refresh();
+        })
+    ]
 });
 
 piyo.ui.registerSource("window-navi", "window", {
