@@ -1,7 +1,7 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 //"use strict";
 var INFO = //{{{
-<plugin name="piyo-ui" version="0.0.4"
+<plugin name="piyo-ui" version="0.0.5"
         href="http://github.com/caisui/vimperator/blob/master/plugin/piyo-ui.js"
         summary="piyo ui"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -31,6 +31,8 @@ ToDo:
 - source を他 plugin から 拡張する手段
 - 単一選択用/複数選択用 map/command を 認識できる手段
 - 固有 map 一覧の確認方法
+- Deferrd っぽい仕組み
+- util.http.post の 実装
 
 Bug:
 - 候補生成途中でui.quit で、collapsed=trueに失敗することがある。
@@ -704,8 +706,10 @@ let PiyoUI = Class("PiyoUI", //{{{
 
         let script;
         try {
-            if ((name in (this._scripts))  && ("onUnload" in (script = this._scripts[name])))
-                script.onUnload();
+            if ((name in (this._scripts))) {
+                if (this._scripts[name].hasOwnProperty("onUnload"))
+                    this._scripts[name].onUnload();
+            }
 
             script = {__proto__: piyo};
             log(<>load plugin: {file.leafName}</>);
@@ -904,6 +908,7 @@ let PiyoSource = Class("PiyoSource", //{{{
         this._commands.execute(command, modifiers);
     },
     maps: [],
+    keys: [],
 }, {
     getAttrValue: function (obj, attr, name) {
         while (obj) {
@@ -1138,7 +1143,7 @@ let onUnload = (function () // {{{
         [["<Esc>"], "", function () {
             ui.quit();
         }],
-        [["i"], "piyo insert mode", function () {
+        [["i", "a"], "piyo insert mode", function () {
             modes.set(modes.PIYO_I, modes.NONE, true);
             commandline.show();
         }],
@@ -1372,6 +1377,70 @@ let util = {
         constructor.prototype = proto;
         return constructor;
     },
+    runnable: function (func, callback) {
+        let generator = func(callback ? callback(generator) :function _callback(value) {generator.send(value);});
+        generator.next();
+    },
+    http: {
+        xhr: function (params) {
+            try {
+                let thread = services.get("threadManager").mainThread;
+                let xhr = new XMLHttpRequest();
+                let wait = true;
+                xhr.mozBackgroundRequest = true;
+
+                xhr.onreadystatechange = function () {
+                    if (xhr.readyState == 4) {
+                        wait = false;
+                    }
+                };
+                url = params.url;
+                if (params.query) {
+                    let query = params.query;
+                    url += "?" + util.names(query)
+                        .map(function (n) [n, query[n]].map(function (v) encodeURIComponent(n)).join("="))
+                        .join("&");
+                }
+
+                params.headers && params.headers.forEach(function ([name, value]) {
+                    xhr.setHeader(name, value);
+                });
+
+                let t = Date.now();
+                xhr.open(params.type, url, true, params.user || null, params.password || null);
+                xhr.send(params.post || null);
+
+                // todo: true or false
+                while (wait && Date.now() < (t + 30 * 1000))
+                    thread.processNextEvent(true);
+
+                log(Date.now() - t, params.type, url);
+
+                return xhr;
+            } catch (ex) {
+                Cu.reportError(ex);
+                return null
+            }
+        },
+        get: function (url, query) {
+            return this.xhr({
+                type: "GET",
+                url: url,
+                query: query
+            });
+        },
+        post: function (url, query, postdata) {
+            liberator.assert(null, "post is not implementation")
+            if (!postdata)
+                postdata = query;
+            return this.xhr({
+                type: "POST",
+                url: url,
+                query: query,
+                post: postdata
+            });
+        }
+    }
 };
 
 /// fx3
@@ -1410,7 +1479,7 @@ commands.addUserCommand(["pi[yo]"], "piyo command", function (args) {
 }, true);
 
 commands.addUserCommand(["loadpiyo"], "piyo load plugin", function (args) {
-    if (args.length) ui.loadPiyos();
+    if (args.length == 0) ui.loadPiyos();
     else ui.loadPiyo(args[0]);
 }, {
     literal: 0,
