@@ -1,0 +1,101 @@
+// vim:set ft=javascript:
+
+var INFO = <>
+    XMLHttpRequest の 動作確認用
+    リスト表示のみ作成中
+</>;
+
+const necko = "https://d3nwyuy0nl342s.cloudfront.net/images/gravatars/gravatar-140.png";
+function makeApiUrl() "https://github.com/api/v2/json/" + Array.slice(arguments).join("/")
+// s: size 指定
+// d: image 無い場合のredirect先
+function getAvotor16(gravatar_id) "https://secure.gravatar.com/avatar/" + gravatar_id + "?s=16" + "&d=" + encodeURIComponent(necko );
+
+commands.addUserCommand("github", "test", function (args) {
+
+}, {
+    subCommands: [
+        Command("issue", "", function (args) {
+            let url = args[0] || content.location.href;
+            let uri = makeURI(url);
+            liberator.assert(uri && uri.host == "github.com", <>{url} is not github.</>);
+
+            let [,user, repo] = uri.path.split("/");
+            liberator.assert(user && repo);
+
+            ui.input("", {
+                createView: function(i, h) <tr><td class="mark"/><td align="right">{i.number}</td><td>{i.title}({i.comments})</td></tr>,
+                generator: function () {
+                    let xhr = util.http.get(makeApiUrl("issues/list", user, repo, "open"));
+
+                    let json = JSON.parse(xhr.responseText);
+                    liberator.log(json, 0);
+                    return json.issues;
+                }
+            });
+        }),
+        Command("watcher", "", function (args) {
+            let url = args[0] || content.location.href;
+            let uri = makeURI(url);
+            liberator.assert(uri && uri.host == "github.com", <>{url} is not github.</>);
+
+            let [,user, repo] = uri.path.split("/");
+            liberator.assert(user && repo);
+
+            ui.input("", {
+                createView: function(i, h) <tr><td class="mark"/><td>{util.icon16(getAvotor16(i.gravatar_id))}</td><td>{i.login}({i.name || "no name"})</td><td>{i.blog || ""}</td></tr>,
+                generator: function () {
+                    let xhr = util.http.get(makeApiUrl("repos/show", user, repo, "watchers"), {full:1});
+
+                    let json = JSON.parse(xhr.responseText);
+                    return json.watchers;
+                }
+            });
+        }),
+        //commits/list/:user_id/:repository/:branch
+        Command("commits", "", function (args) {
+            let url = args[0] || content.location.href;
+            let uri = makeURI(url);
+            liberator.assert(uri && uri.host == "github.com", <>{url} is not github.</>);
+
+            let [,user, repo, , branch] = uri.path.split("/");
+            if (!branch) branch = "master";
+            liberator.assert(user && repo && branch, "error");
+
+            ui.input("", {
+                createView: function(i, h) <tr><td class="mark"/><td>{util.icon16(i.authorIcon)}</td><td><pre>{i.message}</pre></td></tr>,
+                generator: function () {
+                    const self = this;
+
+                    let create = util.lazyProto({
+                        get message() this.item.message,
+                        get login() this.item.author.login,
+                        get authorIcon() {
+                            let user_id = this.login;
+                            // 無い場合がある
+                            if (!user_id) return;
+                            let user = self.getCache("user/" + user_id, function () {
+                                //  /user/show/:username
+                                let xhr = util.http.get(makeApiUrl("user/show", user_id));
+                                return JSON.parse(xhr.responseText).user;
+                            });
+
+                            return user ? getAvotor16(user.gravatar_id) : "";
+                        },
+                    });
+
+                    let num = 1;
+                    while (1) {
+                        let xhr = util.http.get(makeApiUrl("commits/list", user, repo, branch), {page: num++});
+                        let commits = JSON.parse(xhr.responseText).commits;
+
+                        for ([, commit] in Iterator(commits))
+                            yield create(commit);
+                        if (commits.length < 35)
+                            break;
+                    }
+                }
+            });
+        }),
+    ]
+}, true);
