@@ -1,7 +1,7 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 //"use strict";
 var INFO = //{{{
-<plugin name="piyo-ui" version="0.0.5"
+<plugin name="piyo-ui" version="0.0.6"
         href="http://github.com/caisui/vimperator/blob/master/plugin/piyo-ui.js"
         summary="piyo ui"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -33,6 +33,7 @@ ToDo:
 - 固有 map 一覧の確認方法
 - Deferrd っぽい仕組み
 - util.http.post の 実装
+- item 生成用に 略記関数(wiki記法とか、zen codingのような)
 
 Bug:
 - 候補生成途中でui.quit で、collapsed=trueに失敗することがある。
@@ -55,7 +56,8 @@ let interval = liberator.globalVariables.piyo_interval || 500;
 /**
  * @param {Object}  cocnsole log
  */
-function log() {
+function log() //{{{
+{
     let msg = Cc["@mozilla.org/scripterror;1"].createInstance(Ci.nsIScriptError);
     let stack = Components.stack.caller;
     //let category = "PIYO " + (new Date()).toLocaleFormat("%y.%m.%d-%H:%M:%S");
@@ -64,7 +66,7 @@ function log() {
     let message = Array.concat((new Date()).toLocaleFormat("%m%d %H:%M:%S"), Array.splice(arguments, 0));
     msg.init(message, stack.filename, stack.sourceLine, stack.lineNumber, null, 0, category);
     services.get("console").logMessage(msg);
-}
+}//}}}
 
 function lazyGetter(obj, name, func) {
     obj.__defineGetter__(name, function () {
@@ -95,7 +97,8 @@ let fx3 = Application.version[0] === "3";
 let disabledFixed = liberator.globalVariables.piyo_disabled_fixed;
 let piyo = this;
 
-function DelayTimer(self, minInterval, callback) {
+function DelayTimer(self, minInterval, callback) //{{{
+{
     let timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
     return {
         notify: function (aTimer) {
@@ -123,9 +126,10 @@ function DelayTimer(self, minInterval, callback) {
             }
         }
     };
-}
+}//}}}
 
-let PiyoCommands = Class("PiyoCommands", Commands, {
+let PiyoCommands = Class("PiyoCommands", Commands, //{{{
+{
     init: function (array) {
         if (array instanceof Array) {
             let ignore = [];
@@ -157,12 +161,13 @@ let PiyoCommands = Class("PiyoCommands", Commands, {
         let exCommand = top.filter(function (me) exCommands.some(function (other) other.hasName(me.name)));
         return PiyoCommands(exCommand);
     }
-});
+}); //}}}
 
-let PiyoGuardCommand = Class("PiyoGuardCommand", {
+let PiyoGuardCommand = Class("PiyoGuardCommand", //{{{
+{
     init: Command.prototype.init,
     hasName: Command.prototype.hasName
-});
+}); //}}}
 
 PiyoCommands.prototype.__defineGetter__("ex", function () {
     let func = liberator.eval(<![CDATA[(function() base)()]]>.toString()
@@ -289,6 +294,9 @@ let PiyoUI = Class("PiyoUI", //{{{
             }
             .nw {
                 white-space: nowrap;
+            }
+            .wwb {
+                word-wrap:break-word;
             }
             #main {
                 width: 100%;
@@ -891,7 +899,11 @@ let PiyoSource = Class("PiyoSource", //{{{
                 yield obj;
         } else {
             let list = [];
-            for (let obj in iter.call(this)) {
+            let result = iter.call(this);
+            if (result instanceof Array)
+                result = util.Array.itervalues(result);
+
+            for (let obj in result) {
                 yield obj;
                 list.push(obj);
             }
@@ -962,6 +974,61 @@ let PiyoItem = Class("PiyoItem", //{{{
     set mark(value) let (q = this._mark) q && (q.textContent = value ? "*" : ""),
     toggleMark: function () this.mark = !this.mark,
 });//}}}
+
+let PiyoCache = Class("PiyoCache", //{{{
+{
+    init: function () {
+        this.cache = {};
+    },
+    get: function (name, func) {
+        var obj = this._get(name);
+        return obj === void 0 ? obj : this._set(name, func());
+    },
+    iter: function (name, iterFunc) {
+        var obj = this._get(name);
+        if (obj === void 0) {
+            let list = [];
+            let res = iterFunc();
+            if (res instanceof Array)
+                res = util.Array.itervalues(res);
+            for (let val in res) {
+                list.push(val);
+                yield val;
+            }
+            this._set(name, list);
+        } else {
+            for (let [, val] in Iterator(obj))
+                yield val;
+        }
+    },
+    _get: function (name) this.cache[name],
+    _set: function (name, value) this.cache[name] = value,
+    clear: function (name) { delete this.cache[name]; },
+    clearAll: function () { this.cache = {};}
+});//}}}
+
+let PiyoCacheTime = Class("PiyoCacheTime", PiyoCache, //{{{
+{
+    init: function (time) {
+        this.cache = {};
+        this.time = time || 0;
+    },
+    _get: function (name) {
+        if (name in this.cache) {
+            let obj = this.cache[name];
+            if (Date.now() < obj.time)
+                return obj.data;
+        }
+        return void 0;
+    },
+    _set: function (name, value) {
+        this.cache[name] = {
+            time: Date.now() + this.time,
+            data: value
+        };
+        return value;
+    }
+}); //}}}
 
 let onUnload = (function () // {{{
 {
@@ -1230,7 +1297,8 @@ let onUnload = (function () // {{{
 })(this); //}}}
 
 var ui = PiyoUI(iframe, commandline._commandWidget);
-let util = {
+let util = // {{{
+{
     __proto__: modules.util,
     //setTarget(aNode) しないと使えない
     //getContextMenu: function (win) Object.create((win || window).nsContextMenu.prototype),
@@ -1441,7 +1509,7 @@ let util = {
             });
         }
     }
-};
+}; //}}}
 
 /// fx3
 if (fx3) {
