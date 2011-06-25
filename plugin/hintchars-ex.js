@@ -1,6 +1,6 @@
 // vim: set fdm=marker  et ts=4 sw=4:
 var INFO = //{{{
-<plugin name="hintchars-ex" version="0.0.2"
+<plugin name="hintchars-ex" version="0.0.3"
         href="http://github.com/caisui/vimperator/blob/master/plugin/hintchars-ex.js"
         summary="Hint Chars Ex"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -23,15 +23,11 @@ var INFO = //{{{
     }
     function iterProgression(r) {
         let cur = 1, pre;
-        for (let i in step(2)) {
+        for (let i = 2;; i++) {
             pre = cur;
             cur = getProgression(r, i);
             yield [i, pre, cur];
         }
-    }
-    function step(i) {
-        if (i === void(0)) i = 0;
-        while (1) yield i++;
     }
 
     let logBase = {};
@@ -73,10 +69,23 @@ var INFO = //{{{
         }
         return Array(digit).join(hintchars[0]) + chars;
     };
+    hints._checkUnique = function () {
+        if (this._hintNumber == 0)
+            return;
+        liberator.assert(this._hintNumber <= this._validHints.length);
+
+        if (this._hintNumber * options["hintchars"].length < this._validHints.length) {
+            let timeout = options["hinttimeout"];
+            if (timeout > 0)
+                this._activeTimeout = this.setTimeout(function () { this._processHints(true); }, timeout);
+        }
+        else // we have a unique hint
+            this._processHints(true);
+    };
 
     this.onUnload = function () {
         delete this.onUnload;
-        ["_chars2num", "_num2chars"]
+        ["_chars2num", "_num2chars", "_checkUnique"]
             .forEach(function (name) delete hints[name]);
     };
 }).call(this);
