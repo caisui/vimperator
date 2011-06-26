@@ -1,7 +1,7 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 //"use strict";
 var INFO = //{{{
-<plugin name="piyo-ui" version="0.0.6"
+<plugin name="piyo-ui" version="0.1.0"
         href="http://github.com/caisui/vimperator/blob/master/plugin/piyo-ui.js"
         summary="piyo ui"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -14,10 +14,7 @@ var INFO = //{{{
             - 一覧の列挙
             - 列挙したものを絞り込む
             - 一覧から選択したものに対してコマンドを実行
-        </description>
-    </item>
-</plugin>;
-<>
+
 <![CDATA[
 ToDo:
 - fold 機能
@@ -31,12 +28,11 @@ ToDo:
 - source を他 plugin から 拡張する手段
 - 単一選択用/複数選択用 map/command を 認識できる手段
 - 固有 map 一覧の確認方法
-- Deferrd っぽい仕組み
+- Deferred っぽい仕組み
 - util.http.post の 実装
 - item 生成用に 略記関数(wiki記法とか、zen codingのような)
 
 Bug:
-- 候補生成途中でui.quit で、collapsed=trueに失敗することがある。
 - 高さ調整が上手くいかないパターンがある
 - 表示候補数0でmap, commandが 動かない
 
@@ -48,7 +44,10 @@ Done:
 - 疑似非同期 item 列挙
 - 絞り込み検索
 - 否定検索
-]]></>;
+]]>
+        </description>
+    </item>
+</plugin>;
 //}}}
 
 let interval = liberator.globalVariables.piyo_interval || 500;
@@ -127,6 +126,272 @@ function DelayTimer(self, minInterval, callback) //{{{
         }
     };
 }//}}}
+
+
+lazyGetter(this, "Deferred", function () //{{{
+{
+    var uuid = 0;
+    function Deferred(func) {
+        if (this instanceof Deferred) {
+            //xxx: debug
+            //log("-----------------create instance");
+            this.init(func);
+            this.uuid = ++uuid;
+        } else
+            return new Deferred(func);
+    };
+    var D = Deferred;
+
+    D.prototype = {
+        init: function (canceller) {
+            this._canceller = canceller;
+            this._callbacks = [];
+            this._state = 0;
+            this._parent = null;
+            this._nest = null;
+            this._result = null;
+            this._msg = "ok";
+            return this;
+        },
+
+        next:  function (callback) this._post({ok:callback}),
+        error: function (callback) this._post({ng:callback}),
+        both:  function (callback) this._post({ok:callback, ng:callback}),
+        scope: function (callback) {callback(); return this;},
+
+        call: function (value) {
+            //log("** fire", this.uuid);
+            this._msg = "ok";
+            return this._fire(value)
+        },
+        fail: function (value) {
+            this._msg = "ng";
+            return this._fire(value);
+        },
+
+        // xxx: debug
+        //get _msg ()  this.__msg,
+        //set _msg (v) {
+        //    this.__msg = v;
+        //},
+
+        _post: function (obj) {
+            //if (this._nest) throw "it's runngin. cannot push action";
+            this._callbacks.push(obj);
+
+            if (this._state == Deferred.DONE) {
+                var self = this.init();
+                Deferred.next(function () self);
+            } 
+            return this;
+        },
+
+        fire: function (value) {
+            return this._fire(value);
+        },
+
+        // debug
+        get _depth() {
+            let count = 0, p = this;
+            while (p = p._parent) count++;
+            return count;
+        },
+        _fire: function (value) {
+            var callbacks = this._callbacks;
+            var callback;
+
+            while (callback = callbacks.shift()) {
+                try {
+                    var f = callback[this._msg];
+                    if (!f) continue;
+                    var result = f.call(this, value);
+
+                    if (this._breaker) {
+                        var breaker = this._breaker;
+                        this._breaker = null;
+                        Deferred.lazyCall(breaker);
+                        return;
+                    }
+                        
+
+                    if (result instanceof Deferred) {
+                        this._nest = result;
+                        result._msg = this._msg;
+                        result._parent = this;
+                        // xxx: return this; //?
+                        return;
+                    } else
+                        value = result;
+                } catch (ex) {
+                    this._msg = "ng";
+                    Cu.reportError(ex);
+                    this._result = value = ex;
+                }
+            }
+
+            var parent = this._parent;
+            if (parent) {
+                this._parent = parent._nest= null;
+                parent._msg = this._msg;
+                return parent._fire(value);
+            } else
+                return this;
+        },
+
+        cancel: function () {
+            log("cancel");
+            var d;
+            let list = [];
+            const self = this;
+            ["_parent", "_nest"].forEach(function (attr) {
+                for (d = self[attr]; d; d = d[attr]) {
+                    list.push(d);
+                }
+            });
+            this._nest ? this._nest.cancel() : this._canceller && this._canceller();
+            return 
+        },
+
+        pause:  function () this._nest ? this._nest.pause()  : this._breaker = Deferred.new(),
+        resume: function () this._nest ? this._nest.resume() : this._fire(this._result),
+    };
+
+    D.PREPARE = {};
+    D.RUNNING = {};
+    D.DONE = {};
+
+    D.next = function (callback)
+        Deferred.wait(0).next(callback);
+    D.time_next = function () {
+        var d = new Deferred(function () {clearTimeout(id);});
+        var id = setTimeout(function () { d.fire();}, 0);
+        return d;
+    };
+    D.image_next = function () {
+        var img = new Image();
+        var d = Deferred.domEvent(img, "error");
+        img.src = "data:image/png," + Math.random();
+        return d;
+    };
+
+    D.next = function (callback) D.image_next().next(callback);
+    D.lazyCall = function (deferred, value)
+        Deferred.wait(0).next(function () deferred.call(value));
+    D.wait = function wait(msec) {
+        var timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+        var d = new Deferred(function () {
+            timer.cancel();
+        });
+        timer.initWithCallback({ notify: function () d.fire()}, msec, Ci.nsITimer.TYPE_ONE_SHOT);
+
+        return d;
+    };
+    D.domEvent = function (dom, event, capture) {
+        if (capture == void 0) capture = false;
+        var d = new Deferred(cancel);
+        d.name = "domEvent";
+        dom.addEventListener(event, callback, capture);
+        function cancel() {
+            dom.removeEventListener(event, callback, capture);
+        }
+        function callback(e) {cancel(); d.fire(e); }
+        return d;
+    };
+    D.httpGet = function (url, query) {
+        var d = new Deferred();
+        var xhr = new XMLHttpRequest();
+        var d1 = Deferred.domEvent(xhr, "readystatechange").next(function (e) d2.cancel() && d.call(xhr));
+        var d2 = Deferred.domEvent(xhr, "error").next(function (e) d1.cancel() && d.fail(xhr));
+        xhr.send(url);
+
+        return d;
+    };
+    D.new = function (canceller) {
+        var d = new Deferred(canceller);
+        return d;
+    };
+    D.parallel = function (list) {
+        if (arguments.length > 1) list = Array.slice(arguments);
+        var obj = {}, count = list.length, results;
+        var d = new Deferred(cancel);
+        list.forEach(function (d, i) {
+            if (d instanceof Function) d =  Deferred.next(d);
+            obj[i] = new Deferred(cancel).next(function () d)
+                .both(function (val) {
+                    delete objs[i];
+                    return val;
+                })
+                .next(function (val) {
+                    results[i] = val;
+                    if (--count <= 0)
+                        d.call(results);
+                })
+                .error(function (ex) {
+                    cancel();
+                    d.fail(ex);
+                });
+            ;
+        });
+        function cancel() {
+            for (let a in obj)
+                obj[a].cancel();
+        }
+        return d;
+    };
+    D.iter = function _iter(iter, callback) {
+        var d = new Deferred(function () {
+            if (iter.close) iter.close();
+            return d1.cancel();
+            return d1.cancel()
+            .next(function () {
+                if (iter.close) iter.close();
+            });
+        });
+
+        if (iter instanceof Function) iter = iter();
+        else if (iter instanceof Array) iter = Iterator(iter);
+        //else if (iter instanceof Iterator) 
+
+        var param = {iter: iter};
+        var d1 = Deferred.next(function loop (value) {
+            try {
+                param.result = value;
+                param.value = iter.next();
+
+                return d1 = Deferred.wait(0).next(function () {
+                        let r = callback.call(this, param)
+                        return r;
+                    })
+                    .next(function (v) {
+                        //log("end callback");
+                        return v;
+                    })
+                    .next(loop)
+                    .error(function (ex) {
+                        Cu.reportError(ex);
+                        d.fail(ex);
+                    });
+            } catch (ex if ex instanceof StopIteration) {
+                    d.call(value);
+            } catch (ex) {
+                    d.fail(ex);
+            }
+        });
+        return d;
+    };
+    ["wait", "image_next", "iter"].forEach(function (name) {
+        D.prototype[name] = function () {
+            let args = Array.slice(arguments);
+            return this
+                .next(function (preValue) D[name].apply(D, args).next(function (value) [value, preValue]));
+        };
+    });
+    function echmsg(msg) { return function () {
+        liberator.echo(msg);
+        log(msg);
+    };}
+    return D;
+}); //}}}
 
 let PiyoCommands = Class("PiyoCommands", Commands, //{{{
 {
@@ -428,6 +693,7 @@ let PiyoUI = Class("PiyoUI", //{{{
     _buildItems: function _buildItems(filter, sourceGenerator, modifiers) {
         const self = this;
         const thread = services.get("threadManager").mainThread;
+        self._deferred = null;
 
         if (!modifiers) modifiers = {};
         if ([modes.PIYO, modes.PIYO_I].indexOf(liberator.mode) < 0)
@@ -599,9 +865,11 @@ let PiyoUI = Class("PiyoUI", //{{{
 
         if (prop.commands) {
             if (prop.commands instanceof Function) {
-            let commands = PiyoCommands();
-            prop.commands(commands);
-            prop.commands = commands;
+                let commands = PiyoCommands();
+                prop.commands(commands);
+                prop.commands = commands;
+            } else if (prop.commands instanceof Array) {
+                prop.commands = PiyoCommands(prop.commands);
             } else {
                 liberator.echoerr(name);
             }
@@ -688,11 +956,11 @@ let PiyoUI = Class("PiyoUI", //{{{
         }
     },
     showHelp: function () {
-        modes.push(modes.PIYO);
         //let source = this.selectedItem.source;
         //for (let attr in source.marks) {
         //    liberator.echo(attr);
         //}
+        modes._prevMode = modes.PIYO;
         let item = this.selectedItem.item;
         if (item.item) item = item.item;
         liberator.echo(util.objectToString(item, true));
@@ -759,7 +1027,7 @@ let PiyoUI = Class("PiyoUI", //{{{
     echo: function () {
         // required check modes.PIYO?
         
-        modes.push(modes.PIYO);
+        modes._prevMode = modes.PIYO;
         liberator.echo.apply(liberator, arguments);
     },
     echoAsync:    function () let(args = Array.splice(arguments, 0)) this.setTimeout(function () liberator.echo.apply(liberator, args), 0),
@@ -771,7 +1039,146 @@ let PiyoUI = Class("PiyoUI", //{{{
         } else {
             commandline._setPrompt(this.rowStateE4X.toString());
         }
-    }
+    },
+    openAsync: function (source, value) {
+        this.dOpen(source, value);
+    },
+    dOpen: function (source, value) {
+        const self = this;
+        this._deferred = Deferred.image_next()
+        .next(function () {
+            return self.dfOpen(source, value);
+        })
+        .error(function(ex) {
+            alert(ex);
+        });
+    },
+    dfOpen: function (source, value) {
+        if (typeof source == "string") {
+            source = source.split(" ");
+        }
+        let contexts = [];
+        function _createSource(self, names) {
+            for (var [, name] in Iterator(names)) {
+                if (self._aliases[name]) {
+                    self._aliases[name].forEach(_createSource);
+                    for (var source in _createSource(self, self._aliases[name]))
+                        yield source;
+                } else {
+                    yield self._sources[name];
+                }
+            }
+        }
+
+        if (!value) value = "";
+        this._contexts = [s(s.name, this) for (s in _createSource(this, source))];
+        this._filter = value;
+        this.editor.value = value;
+        modes.set(modes.PIYO);
+        return this.dfShow();
+    },
+    input: function (input, source) {
+        this.dfInput(source, input);
+    },
+    dfInput: function (source, input) {
+        modes._prevMode = modes.PIYO;
+        this.editor.value = "";
+        this._filter = input || "";
+        this._contexts = [this.createSource("anonymouse", source)("anonymouse", this)];
+        return this._deferred = this.dfShow();
+    },
+    refresh: function() {
+        this._deferred = this.dfShow();
+    },
+    dfRefresFilter: function () {
+        if (this._filter == this.editor.value) return;
+        const self = this;
+        this._deferred.cancel();
+        this._deferred = Deferred.wait(300)
+        .next(function () {
+            self._filter = ui.editor.value;
+        })
+        .next(function () self.dfShow())
+        .error(function (ex) alert(ex));
+    },
+    dfShow: function () {
+        const self = this;
+        let items = this.items = [];
+        return Deferred.image_next()
+        .next(function () {
+            self.index = -1;
+            let doc = self.doc;
+            let main = doc.getElementById("main");
+            let r = doc.createRange();
+            r.selectNodeContents(main);
+            r.deleteContents()
+        }).iter(this._contexts, function (param) {
+            let [,context] = param.value;
+            let doc = self.doc;
+            let main = doc.getElementById("main");
+
+            let root = util.xmlToDom(context.createRoot(), doc);
+            let (title = root.querySelector(".title")) {
+                if (title) title.textContent = "[df] " + (context.title || "no name");
+            }
+
+            main.appendChild(root);
+            let (node = root.querySelector(".content")) {
+                if (node) root = node;
+                else root.classList.add("content");
+            }
+            //
+            // items offset
+            context.offset = items.length;
+            let nextUpdate = Date.now() + interval;
+            let node = doc.createDocumentFragment();
+
+            function updateItem() {
+                root.appendChild(node);
+                node = doc.createDocumentFragment();
+
+                if (self.index === -1) {
+                    self.showBox();
+                }
+
+                self._resizer.tell();
+                self._updateStatus.tell();
+            }
+
+            return Deferred.image_next()
+            .iter(context.generator(self), function (param) {
+                let item = param.value;
+                var aCnt = 0;
+                context.filter = self._filter;
+                let highlighter = context.getHighlighter(self._filter);
+                //for (let item = param.value, time = Date.now() + 100; Date.now() < time; item = param.iter.next()) {
+                let (item = param.value) {
+
+                    context.items.push(item);
+                    let hi = highlighter(item);
+                    if (hi) {
+                        let view = util.xmlToDom(context.createView(item, hi), doc);
+                        view.classList.add("item");
+                        node.appendChild(view);
+                        items[items.length] = PiyoItem(item, view, context);
+                    }
+                }
+
+                if (node.childNodes.length > 500) {
+                    updateItem();
+                }
+            })
+            .next(updateItem);
+        })
+        .next(function (e) {
+            log("end");
+        })
+        .error(function (ex) {
+            liberator.echoerr(ex);
+            Cu.reportError(ex);
+        })
+        ;
+    },
 }, {
 }); //}}}
 
@@ -1157,7 +1564,12 @@ let onUnload = (function () // {{{
                         event.preventDefault();
                         event.stopPropagation();
                     } else {
-                        ui._updateTimer.tell();
+                        log("df", ui._deferred);
+                        if (ui._deferred) {
+                          ui.dfRefresFilter();
+                        }
+                        else
+                            ui._updateTimer.tell();
                     }
                 } else {
                     this.__proto__.__proto__.onEvent.apply(this, arguments);
@@ -1201,6 +1613,17 @@ let onUnload = (function () // {{{
     modes.getMode(modes.PIYO).display =
         function() <>PIYO #{ui.editor.value}# {ui.rowStateE4X}</>;
 
+    modes.reset = function _reset(silent) {
+        this._modeStack = [];
+        if (this._prevMode) {
+            this.set(this._prevMode, modes.NONE, silent);
+            this._prevMode = null;
+        } else if (config.isComposeWindow)
+            this.set(modes.COMPOSE, modes.NONE, silent);
+        else
+            this.set(modes.NORMAL, modes.NONE, silent);
+    };
+
     [ //mapping PIYO
         [["j", "<Down>", "<Tab>"], "down", function (count) ui.scroll(Math.max(count,  1), true), {count: true}],
         [["k", "<Up>", "<s-Tab>"], "up",   function (count) ui.scroll(-Math.max(count, 1), true), {count: true}],
@@ -1208,6 +1631,7 @@ let onUnload = (function () // {{{
         [["<C-b>", "<PageUp>"], "page scroll up",   function (count) ui.scrollByPages(-Math.max(count, 1)), {count: true}],
         [["<C-c>"], "stop search", function () ui.build && (ui.abort = true)],
         [["<Esc>"], "", function () {
+            if (ui._deferred) ui._deferred.cancel();
             ui.quit();
         }],
         [["i", "a"], "piyo insert mode", function () {
@@ -1241,7 +1665,14 @@ let onUnload = (function () // {{{
                 },
                 onCancel: function () {
                     commandline._setCommand(filter);
-                    modes.set(modes.PIYO);
+                    Deferred.image_next()
+                    .next(function () {
+                        modes.set(modes.PIYO);
+
+                    })
+                    .error(function(ex) {
+                        alert(ex);
+                    });
                 }
             });
         }],
