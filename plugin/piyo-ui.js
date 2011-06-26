@@ -1075,15 +1075,19 @@ let PiyoUI = Class("PiyoUI", //{{{
         this._filter = value;
         this.editor.value = value;
         modes.set(modes.PIYO);
+        this.modifiers = {};
         return this.dfShow();
     },
     input: function (input, source) {
         this.dfInput(source, input);
     },
     dfInput: function (source, input) {
+        if (fx3) modes.set(modes.PIYO);
+        else
         modes._prevMode = modes.PIYO;
         this.editor.value = "";
         this._filter = input || "";
+        this.modifiers = {};
         this._contexts = [this.createSource("anonymouse", source)("anonymouse", this)];
         return this._deferred = this.dfShow();
     },
