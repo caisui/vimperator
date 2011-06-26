@@ -42,23 +42,19 @@ commands.addUserCommand(["pse[lector]"], "", function (args) {
             commands.add(["open"], "open tabs from href attribute", function (args, modifiers) {
                 let aTab = gBrowser.selectedTab;
                 let menu = util.getContextMenu();
-                modifiers.items.forEach(function (i) {
+                let items = modifiers.items;
+                Deferred.image_next()
+                .iter(items, function (param) {
                     try {
-                    let node = i.item.node;
-                    menu.setTarget(node);
-                    menu.openLinkInTab();
-                    liberator.threadYield(true);
+                        let [, i] = param.value;
+                        let node = i.item.node;
+                        if (!node.mozMatchesSelector("a")) {
+                            node = node.querySelector("a") || node;
+                        }
+                        menu.setTarget(node);
+                        menu.openLinkInTab();
+                        liberator.threadYield(true);
                     } catch(ex) {Cu.reportError(ex);}
-                    //let href = node.href || node.getAttribute("href") || node.querySelector("[href]").getAttribute("href");
-                    //if (href) {
-                    //    href = makeURI(href, null, makeURI(node.baseURI, null, null)).spec;
-
-                    //    nsContextMenu.prototype.openLinkInTab.call({
-                    //        target: node,
-                    //        linkURL: url,
-                    //    });
-                    //    liberator.threadYield(true);
-                    //}
                 });
             });
         },
