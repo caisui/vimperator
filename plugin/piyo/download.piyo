@@ -11,15 +11,12 @@ ui.registerSource("download", {
     description: "download list",
     title: "dowload list",
     keys: ["name"],
-    createView1: function (item, hi) <tr style="vertical-align: top;"><td class="mark"/><td><img src={"moz-icon://"+item.target+"?size=64"}/></td>
-    <td><br/><span style="position: absolute; white-space: nowrap;color:blue;">{item.source}</span></td>
-    <td>{item.id}</td><td style="color:green;">{(new Date(item.endTime/1000)).toLocaleFormat("%y%m%d")}</td>
-    <td>{1.0*item.currBytes/item.maxBytes*100}%</td><td>{item.state}</td><td>{hi.name}</td>
-    </tr>,
     createView: function (item, hi) <tr style="vertical-align: top;"><td class="mark"/><td><img src={"moz-icon://"+item.$.target.spec+"?size=64"}/></td>
     <td><br/><span style="position: absolute; white-space: nowrap;color:blue;">{item.$.source.spec}</span></td>
     <td>{item.$.id}</td><td style="color:green;">{(new Date(item.$.startTime/1000)).toLocaleFormat("%y%m%d")}</td>
-    <td align="right">{item.$.percentComplete}%</td><td>{item.$.state}</td><td>{hi.name}</td>
+    <td style="width:10em;height:1em;position:relative;">
+        <div class="ib" style={"left:0;height:1em;background-color:rgb(128,255,128);width:" + (item.$.percentComplete / 10) + "em;"}>
+        {item.$.percentComplete}%</div></td><td>{item.$.state}</td><td>{hi.name}</td>
     </tr>,
     generator1: function () {
         return sqlquery(gDownloadMgr.DBConnection, query);
