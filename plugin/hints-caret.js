@@ -249,10 +249,3 @@ function showHint(visual) {
         onCancel: function () { _removeHints(gWin); }
     });
 }
-
-if (parseFloat(Application.version) >= 4) {
-    mappings.addUserMap([modes.NORMAL], ["<S-c>"], "", function () showCaret());
-    mappings.addUserMap([modes.NORMAL], ["<S-v>"], "", function () showVisual());
-    hints.addMode("c", "", null, function() {commandline.close(); window.setTimeout(function () plugins.caretMode.showCaret(), 0); throw 0;});
-    hints.addMode("v", "", null, function() {commandline.close(); window.setTimeout(function () plugins.caretMode.showVisual(), 0); throw 0;});
-}
