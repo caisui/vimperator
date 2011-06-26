@@ -1,0 +1,30 @@
+// vim: ft=javascript:
+
+lazyGetter(this, "cache", function () PiyoCacheTime(30 * 60 * 1000));
+lazyGetter(this, "HatenaBm", function () {
+    let obj = ["user", "timestamp", "comment"].reduce(function (obj, a) {
+        obj.__defineGetter__(a, function () this.item[a]);
+        return obj;
+    }, {});
+
+    return util.lazyProto({
+        get icon() "http://www.hatena.ne.jp/users/" + this.user.substr(0, 2) + "/" + this.user + "/profile_s.gif",
+        get tags() this.item.tags.join(", ")
+    }, obj);
+});
+
+ui.registerSource("hatenta-bookmark", {
+    title: "hatena bookmarks",
+    keys:["user", "comment", "tags"],
+    createView: function (i, h) <tr><td class="mark"/><td>{util.icon16(i.icon)}</td><td>{h.user}</td><td><span class="nw">{i.timestamp}</span><br/><span style="color:blue;font-size:.9em;">{h.tags}</span></td><td class="wwb">{h.comment}</td></tr>,
+    generator: function () {
+        let uri = content.location.href;
+        //return this.iterCache(uri, function () {
+        return cache.iter(uri, function () {
+            //let xhr = util.http.get("http://b.hatena.ne.jp/entry/json/" + content.location.href);
+            let xhr = util.http.get("http://b.hatena.ne.jp/entry/jsonlite/?url=" + encodeURIComponent(content.location.href));
+            let text = xhr.responseText;
+            return text == "null" ?  [] : (HatenaBm(v) for ([, v] in Iterator(JSON.parse(text).bookmarks)));
+        });
+    }
+});
