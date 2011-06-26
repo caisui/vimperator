@@ -1,0 +1,93 @@
+// vim: set ft=javascript:
+(function () {
+    if (!("noscriptOverlay" in window)) return;
+
+    lazyGetter(this, "ns", function () noscriptOverlay.ns);
+
+    this.allow = function (sites) {
+        noscriptOverlay.safeAllow(sites, true, false,  ns.RELOAD_NO);
+    };
+    this.allowTemp = function (sites) {
+        noscriptOverlay.safeAllow(sites, true,  true,  ns.RELOAD_NO);
+    };
+    this.removeRule = function (sites) {
+        noscriptOverlay.safeAllow(sites, false, false, ns.RELOAD_NO);
+    };
+    ui.registerSource("noscript", {
+        title: "noScript",
+        keys: ["domain"],
+        createRoot: function () <table style="border-collapse:collapse;">
+            <style><![CDATA[
+                tr>td:last-child{width:100%;}
+                td.Allow   { color: blue;}
+                td.Block   { color: red;}
+                td.Temp    { color: green;}
+                td.Default { color: gray;}
+            ]]></style><caption class="title"/></table>,
+        createView: function (i, h) <tr><td class="mark"/><td class={i.type}>{i.type}</td><td>{util.icon16(i.icon)}</td><td class="nw" align="right">{h.domain}</td><td/></tr>,
+        generator: function () {
+            let proto = util.lazyProto({
+                get domain() ns.getDomain(this.item),
+                get type() {
+                    let d = this.domain;
+                    return ns.isJSEnabled(d)
+                        ? ns.isTemp(d) ?      "Temp"  : "Allow"
+                        : ns.isUntrusted(d) ? "Block" : "Default";
+                },
+                get icon() services.get("favicon").getFaviconImageForPage(makeURI(this.item)).spec,
+            });
+            let sites = Array.slice(ns.getSites(gBrowser.selectedBrowser));
+            function rev(s) Array.reverse(Array.slice(s)).join("")
+            sites.sort(function (a, b) rev(a) < rev(b));
+            return (proto(d) for ([,d] in Iterator(sites)));
+        },
+        commands: function (commands) {
+            var cmd = commands.add(["pre[ference]"], "", function () { noscriptUtil.openOptionsDialog();});
+            lazyGetter(cmd, "subCommands", function () {
+                return util.names(noscriptUtil).filter(function (n) /^open/.test(n)).map(function (name) {
+                    return Command([name.substr(4).replace(/Options|Dialog$/, "").toLocaleLowerCase()],
+                        name, function () { noscriptUtil[name](); });
+                });
+            });
+        },
+        maps: [
+            PMap(["A"], "allow temp", function () {
+                let items = ui.getMarkedOrSelectedItem();
+                allow(items.map(function (s) s.item.domain));
+                ui.refresh();
+            }),
+            PMap(["t"], "allow temp", function () {
+                let items = ui.getMarkedOrSelectedItem();
+                allowTemp(items.map(function (s) s.item.domain));
+                ui.refresh();
+            }),
+            PMap(["d"], "delete rule", function () {
+                let items = ui.getMarkedOrSelectedItem();
+                items.forEach(function (s) {
+                    d = s.item.domain;
+                    ["JSEnabled", "Temp", "Untrusted"].some(function (name) {
+                        if (ns["is" + name](d)) {
+                            ns["set" + name](d, false);
+                            return true;
+                        }
+                    });
+                });
+                ui.refresh();
+                noscriptOverlay.syncUI();
+            }),
+            PMap(["b"], "block domain", function () {
+                let items = ui.getMarkedOrSelectedItem();
+                items.forEach(function (s) {
+                    d = s.item.domain;
+                    ns.setUntrusted(d, true);
+                });
+                ui.refresh();
+                noscriptOverlay.syncUI();
+            }),
+            PMap(["r"], "reload", function () {
+                gBrowser.reload();
+                ui.setTimeout(function () this.refresh(), 500);
+            }),
+        ],
+    });
+}).call(this);
