@@ -1037,7 +1037,7 @@ let PiyoUI = Class("PiyoUI", //{{{
         if (liberator.mode == modes.PIYO) {
             modes.show();
         } else {
-            commandline._setPrompt(this.rowStateE4X.toString());
+            commandline._setPrompt(this.rowStateE4X.toString(), commands.HL_QUESTION);
         }
     },
     openAsync: function (source, value) {
