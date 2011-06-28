@@ -1,7 +1,7 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 //"use strict";
 var INFO = //{{{
-<plugin name="piyo-ui" version="0.1.0"
+<plugin name="piyo-ui" version="0.1.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/piyo-ui.js"
         summary="piyo ui"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -29,8 +29,12 @@ ToDo:
 - 単一選択用/複数選択用 map/command を 認識できる手段
 - 固有 map 一覧の確認方法
 - Deferred っぽい仕組み
+-- test 中
 - util.http.post の 実装
 - item 生成用に 略記関数(wiki記法とか、zen codingのような)
+- modes.reset への 対応策
+- vim の quickfix のような表示方法
+
 
 Bug:
 - 高さ調整が上手くいかないパターンがある
@@ -130,6 +134,7 @@ function DelayTimer(self, minInterval, callback) //{{{
 
 lazyGetter(this, "Deferred", function () //{{{
 {
+    // 参考: https://github.com/cho45/jsdeferred/
     var uuid = 0;
     function Deferred(func) {
         if (this instanceof Deferred) {
@@ -213,7 +218,6 @@ lazyGetter(this, "Deferred", function () //{{{
                         return;
                     }
                         
-
                     if (result instanceof Deferred) {
                         this._nest = result;
                         result._msg = this._msg;
@@ -260,29 +264,41 @@ lazyGetter(this, "Deferred", function () //{{{
     D.RUNNING = {};
     D.DONE = {};
 
-    D.next = function (callback)
-        Deferred.wait(0).next(callback);
-    D.time_next = function () {
-        var d = new Deferred(function () {clearTimeout(id);});
-        var id = setTimeout(function () { d.fire();}, 0);
-        return d;
-    };
-    D.image_next = function () {
+    D.next_image = function (callback) {
         var img = new Image();
         var d = Deferred.domEvent(img, "error");
+        var t = Date.now();
         img.src = "data:image/png," + Math.random();
-        return d;
+        return d
+        .next(function (){log("im", Date.now()-t);})
+        .next(callback);
     };
+    D.next_timeout = function (callback) {
+        var id = setTimeout(function () {d.call()}, 0);
+        var d = new Deferred(function () {clearTimeout(id);});
+        var t = Date.now();
+        return d
+        .next(function (){log("to", Date.now()-t);})
+        .next(callback);
+    };
+    D.next_timer = function (callback) {
+        var timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
+        var d = new Deferred(function () { timer.cancel(); });
+        var t = Date.now();
+        timer.initWithCallback({ notify: function (){d.call();}}, 0, Ci.nsITimer.TYPE_ONE_SHOT);
+        return d
+        .next(function (){log("tm", Date.now()-t);})
+        .next(callback);
+    };
+    D.next = D.next_timer;
 
-    D.next = function (callback) D.image_next().next(callback);
+    //D.classID = D.prototype.classID = 0x5e7ab100c2e51;
     D.lazyCall = function (deferred, value)
         Deferred.wait(0).next(function () deferred.call(value));
     D.wait = function wait(msec) {
         var timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
-        var d = new Deferred(function () {
-            timer.cancel();
-        });
-        timer.initWithCallback({ notify: function () d.fire()}, msec, Ci.nsITimer.TYPE_ONE_SHOT);
+        var d = new Deferred(function () { timer.cancel(); });
+        timer.initWithCallback({ notify: function () d.call()}, msec, Ci.nsITimer.TYPE_ONE_SHOT);
 
         return d;
     };
@@ -315,7 +331,7 @@ lazyGetter(this, "Deferred", function () //{{{
         var obj = {}, count = list.length, results;
         var d = new Deferred(cancel);
         list.forEach(function (d, i) {
-            if (d instanceof Function) d =  Deferred.next(d);
+            if (typeof (d) == "function") d =  Deferred.next(d);
             obj[i] = new Deferred(cancel).next(function () d)
                 .both(function (val) {
                     delete objs[i];
@@ -358,13 +374,9 @@ lazyGetter(this, "Deferred", function () //{{{
                 param.result = value;
                 param.value = iter.next();
 
-                return d1 = Deferred.wait(0).next(function () {
+                return d1 = Deferred.next(function () {
                         let r = callback.call(this, param)
                         return r;
-                    })
-                    .next(function (v) {
-                        //log("end callback");
-                        return v;
                     })
                     .next(loop)
                     .error(function (ex) {
@@ -379,7 +391,7 @@ lazyGetter(this, "Deferred", function () //{{{
         });
         return d;
     };
-    ["wait", "image_next", "iter"].forEach(function (name) {
+    ["wait", "iter"].forEach(function (name) {
         D.prototype[name] = function () {
             let args = Array.slice(arguments);
             return this
@@ -527,7 +539,10 @@ let PiyoUI = Class("PiyoUI", //{{{
             .item {
                 background: rgba(255,255,255,.9);
             }
-            .item:nth-child(even) {
+            /*.item:nth-child(even) {
+                background: rgba(244,244,244,.9);
+            }*/
+            .item.odd {
                 background: rgba(244,244,244,.9);
             }
             /*xxx: [selected]?*/
@@ -1037,7 +1052,7 @@ let PiyoUI = Class("PiyoUI", //{{{
         if (liberator.mode == modes.PIYO) {
             modes.show();
         } else {
-            commandline._setPrompt(this.rowStateE4X.toString(), commands.HL_QUESTION);
+            commandline._setPrompt(this.rowStateE4X.toString());
         }
     },
     openAsync: function (source, value) {
@@ -1045,13 +1060,14 @@ let PiyoUI = Class("PiyoUI", //{{{
     },
     dOpen: function (source, value) {
         const self = this;
-        this._deferred = Deferred.image_next()
-        .next(function () {
-            return self.dfOpen(source, value);
-        })
-        .error(function(ex) {
-            alert(ex);
-        });
+        this._deferred = Deferred
+            .next(function () {
+                return self.dfOpen(source, value);
+            })
+            .error(function(ex) {
+                liberator.echoerr(ex);
+                Cu.reportError(ex);
+            });
     },
     dfOpen: function (source, value) {
         if (typeof source == "string") {
@@ -1108,7 +1124,7 @@ let PiyoUI = Class("PiyoUI", //{{{
     dfShow: function () {
         const self = this;
         let items = this.items = [];
-        return Deferred.image_next()
+        return Deferred
         .next(function () {
             self.index = -1;
             let doc = self.doc;
@@ -1134,12 +1150,15 @@ let PiyoUI = Class("PiyoUI", //{{{
             //
             // items offset
             context.offset = items.length;
-            let nextUpdate = Date.now() + interval;
             let node = doc.createDocumentFragment();
 
             function updateItem() {
                 root.appendChild(node);
                 node = doc.createDocumentFragment();
+
+                for (let i = 0, j = list.length; i < j; ++i)
+                    items[items.length] = list[i];
+                list = [];
 
                 if (self.index === -1) {
                     self.showBox();
@@ -1149,12 +1168,15 @@ let PiyoUI = Class("PiyoUI", //{{{
                 self._updateStatus.tell();
             }
 
-            return Deferred.image_next()
-            .iter(context.generator(self), function (param) {
+            context.filter = self._filter;
+            let iter = context.generator(self);
+            let highlighter = context.getHighlighter(self._filter);
+            let isOdd = 1;
+            let list = [];
+
+            return Deferred.next(function(){})
+            .iter(iter, function (param) {
                 let item = param.value;
-                var aCnt = 0;
-                context.filter = self._filter;
-                let highlighter = context.getHighlighter(self._filter);
                 //for (let item = param.value, time = Date.now() + 100; Date.now() < time; item = param.iter.next()) {
                 let (item = param.value) {
 
@@ -1163,8 +1185,12 @@ let PiyoUI = Class("PiyoUI", //{{{
                     if (hi) {
                         let view = util.xmlToDom(context.createView(item, hi), doc);
                         view.classList.add("item");
+                        if (isOdd) {
+                            view.classList.add("odd");
+                        }
+                        isOdd ^= 1;
                         node.appendChild(view);
-                        items[items.length] = PiyoItem(item, view, context);
+                        list[list.length] = PiyoItem(item, view, context);
                     }
                 }
 
@@ -1633,7 +1659,10 @@ let onUnload = (function () // {{{
         [["k", "<Up>", "<s-Tab>"], "up",   function (count) ui.scroll(-Math.max(count, 1), true), {count: true}],
         [["<C-f>", "<PageDown>"], "page scroll down", function (count) ui.scrollByPages( Math.max(count, 1)), {count: true}],
         [["<C-b>", "<PageUp>"], "page scroll up",   function (count) ui.scrollByPages(-Math.max(count, 1)), {count: true}],
-        [["<C-c>"], "stop search", function () ui.build && (ui.abort = true)],
+        [["<C-c>"], "stop search", function () {
+            if (ui._deferred) ui._deferred.cancel();
+            else ui.build && (ui.abort = true);
+        }],
         [["<Esc>"], "", function () {
             if (ui._deferred) ui._deferred.cancel();
             ui.quit();
@@ -1641,6 +1670,7 @@ let onUnload = (function () // {{{
         [["i", "a"], "piyo insert mode", function () {
             modes.set(modes.PIYO_I, modes.NONE, true);
             commandline.show();
+            ui.updateStatus();
         }],
         [["<Space>"], "mark mark", function () {
             ui.selectedItem.toggleMark();
@@ -1669,10 +1699,8 @@ let onUnload = (function () // {{{
                 },
                 onCancel: function () {
                     commandline._setCommand(filter);
-                    Deferred.image_next()
-                    .next(function () {
+                    Deferred.next(function () {
                         modes.set(modes.PIYO);
-
                     })
                     .error(function(ex) {
                         alert(ex);
@@ -1696,6 +1724,9 @@ let onUnload = (function () // {{{
     [ // mapping PIYO_I
         [["<C-n>"], "down", function () ui.scroll( 1, true)],
         [["<C-p>"], "up", function () ui.scroll(-1, true)],
+        //[["<C-n>"], "normal filter", function () ui.matcherType = "n"],
+        //[["<C-m>"], "migemo filter", function () ui.matcherType = "m"],
+        //[["<C-r>"], "regex filter", function () ui.matcherType = "r"],
         [["<Esc>", "<Return>"], "escape PIYO_I", function () {
             modes.set(modes.PIYO)
             commandline.hide();
