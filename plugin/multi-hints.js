@@ -1,6 +1,6 @@
 // vim: set sw=4 ts=4 et fdm=marker:
 var INFO = //{{{
-<plugin name="multi-hints" version="0.0.1"
+<plugin name="multi-hints" version="0.0.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/multi-hints.js"
         summary="multi select hint"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -217,32 +217,33 @@ var INFO = //{{{
             delete hints._hintModes[mode];
             hints.hide();
 
-            commandline.updateMorePrompt();
+            commandline.close();
         }
+        commandline.setTimeout(function () {
+            commandline.input(<>[{selector}]:</>.toString(), function (arg){
+                let args = [];
+                let list = hints._pageHints;
+                let matcher = new MulitHintMatcher(arg);
+                for (let i in util.range(0, list.length)) {
+                    if (matcher.match(i + 1))
+                        args.push(list[i].elem);
+                }
 
-        commandline.input(<>[{selector}]:</>, function (arg){
-            let args = [];
-            let list = hints._pageHints;
-            let matcher = new MulitHintMatcher(arg);
-            for (let i in util.range(0, list.length)) {
-                if (matcher.match(i + 1))
-                    args.push(list[i].elem);
-            }
-
-            if (args.length > 0) {
-                let history = storage[historyQuery];
-                history.mutate("filter", function (line) (line.value || line) != selector);
-                history.push({
-                    value: selector,
-                    host: content.location.host
-                });
-                action(args);
-            }
-            onEscape();
-        },
-        {
-            onCancel: onEscape
-        });
+                if (args.length > 0) {
+                    let history = storage[historyQuery];
+                    history.mutate("filter", function (line) (line.value || line) != selector);
+                    history.push({
+                        value: selector,
+                        host: content.location.host
+                    });
+                    action(args);
+                }
+                onEscape();
+            },
+            {
+                onCancel: onEscape
+            });
+        }, 0);
     },
     {
         literal: 1,
