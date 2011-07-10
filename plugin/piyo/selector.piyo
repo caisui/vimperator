@@ -9,12 +9,30 @@ commands.addUserCommand(["pse[lector]"], "", function (args) {
         keys: ["text"],
         title: <>selector[{selector}]</>.toString(),
         default: "select",
-        createView: function (i, h) <tr><td class="mark"/><td align="right">{i.num}</td><td>{h.text}</td></tr>,
-        generator: function () ({
-            num: i + 1,
-            node: n,
-            get text() this.node.textContent
-        } for ([i, n] in Iterator(content.document.querySelectorAll(selector)))),
+        createView: function (i, h) <tr><td class="mark"/><td align="right">{i.num}</td><td><pre>{h.text}</pre></td></tr>,
+        generator: function () {
+            var encoder = Cc['@mozilla.org/layout/documentEncoder;1?type=text/plain'] .createInstance(Ci.nsIDocumentEncoder);
+
+            let stack = [content.window];
+            while (win = stack.pop()) {
+                stack.push.apply(stack, win.frames);
+                for ([i, n] in Iterator(win.document.querySelectorAll(selector))) {
+                    yield ({
+                        num: i + 1,
+                        node: n,
+                        get text() {
+                            let doc = this.node.ownerDocument;
+                            encoder.init(this.node.ownerDocument,
+                                         'text/plain',
+                                         encoder.OutputBodyOnly | encoder.OutputLFLineBreak
+                                        );
+                            encoder.setNode(this.node);
+                            return encoder.encodeToString();
+                        }
+                    });
+                }
+            }
+        },
         commands: function (commands) {
             commands.add(["select"], "", function (args, modifiers) {
                 let elem = modifiers.items[0].item.node;
@@ -42,18 +60,15 @@ commands.addUserCommand(["pse[lector]"], "", function (args) {
             commands.add(["open"], "open tabs from href attribute", function (args, modifiers) {
                 let aTab = gBrowser.selectedTab;
                 let menu = util.getContextMenu();
-                let items = modifiers.items;
-                Deferred.image_next()
-                .iter(items, function (param) {
+
+                let array;
+                Deferred.array(modifiers.items.map(function (a) a.item.node),
+                function (param) {
                     try {
-                        let [, i] = param.value;
-                        let node = i.item.node;
-                        if (!node.mozMatchesSelector("a")) {
-                            node = node.querySelector("a") || node;
-                        }
-                        menu.setTarget(node);
-                        menu.openLinkInTab();
-                        liberator.threadYield(true);
+                    let node = param.value;
+                    menu.setTarget(node);
+                    menu.openLinkInTab();
+                    liberator.threadYield(true);
                     } catch(ex) {Cu.reportError(ex);}
                 });
             });
