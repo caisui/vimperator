@@ -97,10 +97,21 @@ ui.registerSource("tab", {
             } catch(ex) {liberator.echoerr(ex);}
         });
         commands.add("re[load]", "reload tab", function (args, modifiers) {
-            modifiers.items.map(function (i) i.item.tab)
-                .forEach(function (tab) {
-                    tabs.reload(tab, args.bang);
+            let array = modifiers.items.map(function (i) i.item.tab);
+            Deferred.next(function () {
+                return Deferred.array(array, function (param) {
+                    var tab = param.value;
+                    var br = tab.linkedBrowser;
+                    var d = Deferred.domEvent(br, "load", true);
+                    br.reload();
+                    return d;
                 });
+            })
+            .error(function(ex){alert(ex);});
+            //modifiers.items.map(function (i) i.item.tab)
+            //    .forEach(function (tab) {
+            //        tabs.reload(tab, args.bang);
+            //    });
         });
     },
     maps:[
