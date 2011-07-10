@@ -2,7 +2,7 @@
 
 piyo.ui.registerSource("storageHistory", {
     abstract: true,
-    createView: function (item, hi) <tr><td align="right">{item.time}</td><td>{hi.value}</td></tr>,
+    createView: function (item, hi) <tr><td class="mark"/><td align="right">{item.time}</td><td>{hi.value}</td></tr>,
     description: "storage array manager",
     title: "storage array",
     default: "delete",
@@ -55,7 +55,10 @@ piyo.ui.registerSource("command-mru", "storageHistory", {
     storageKey: "history-command",
     commands: function (commands) {
         commands.add(["open"], "!open command", function (args, modifiers) {
-            commandline.setTimeout(function() this.open("", modifiers.items[0].item.item.value, modes.EX), 0);
+            let cmd = modifiers.items[0].item.item.value;
+            commandline.setTimeout(function() {
+                this.open("", cmd, modes.EX);
+            }, 100);
         });
     }
 });
