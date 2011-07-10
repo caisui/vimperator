@@ -68,3 +68,5 @@ commands.addUserCommand(["pecho"], "inspect result object", function (args) {
     literal: 0,
     completer: completion.javascript,
 }, true);
+
+mappings.add([modes.PIYO], ["x"], "", function () {ui.push("", inspect(ui.selectedItem.item));});
