@@ -7,16 +7,27 @@ FROM moz_downloads
 ORDER BY (state <> 0), endTime DESC, startTime DESC
 ]]>.toString();
 
+
+function e4xProgress(value)
+    <div style="position:relative;padding:0;margin:0;width:10ex;display:inline-block;"><table border="0" cellspacing="0" style="border:0;width:100%;"><tr style="position:relative;height:1em;"><td style={"min-height:1em;background-color:#afa;width:"+value+"%;"}/><td align="right" style="background-color:#ccc;padding:0;"><div style="position:absolute;right:0;font-size:1em;top: 0;">{value}%</div></td></tr></table></div>
 ui.registerSource("download", {
     description: "download list",
     title: "dowload list",
     keys: ["name"],
+    createView1: function (item, hi) <tr style="vertical-align: top;"><td class="mark"/><td><img src={"moz-icon://"+item.target+"?size=64"}/></td>
+    <td><br/><span style="position: absolute; white-space: nowrap;color:blue;">{item.source}</span></td>
+    <td>{item.id}</td><td style="color:green;">{(new Date(item.endTime/1000)).toLocaleFormat("%y%m%d")}</td>
+    <td>{1.0*item.currBytes/item.maxBytes*100}%</td><td>{item.state}</td><td>{hi.name}</td>
+    </tr>,
     createView: function (item, hi) <tr style="vertical-align: top;"><td class="mark"/><td><img src={"moz-icon://"+item.$.target.spec+"?size=64"}/></td>
     <td><br/><span style="position: absolute; white-space: nowrap;color:blue;">{item.$.source.spec}</span></td>
     <td>{item.$.id}</td><td style="color:green;">{(new Date(item.$.startTime/1000)).toLocaleFormat("%y%m%d")}</td>
-    <td style="width:10em;height:1em;position:relative;">
-        <div class="ib" style={"left:0;height:1em;background-color:rgb(128,255,128);width:" + (item.$.percentComplete / 10) + "em;"}>
-        {item.$.percentComplete}%</div></td><td>{item.$.state}</td><td>{hi.name}</td>
+    <td align="right">{item.$.percentComplete}%</td><td>{item.$.state}</td><td>{hi.name}</td>
+    </tr>,
+    createView: function (item, hi) <tr style="vertical-align: top;"><td class="mark"/><td><img src={"moz-icon://"+item.$.target.spec+"?size=64"}/></td>
+    <td><br/><span style="position: absolute; white-space: nowrap;color:blue;">{item.$.source.spec}</span></td>
+    <td>{item.$.id}</td><td style="color:green;">{(new Date(item.$.startTime/1000)).toLocaleFormat("%y%m%d")}</td>
+    <td align="right">{e4xProgress(item.$.percentComplete)}</td><td>{item.$.state}</td><td>{hi.name}</td>
     </tr>,
     generator1: function () {
         return sqlquery(gDownloadMgr.DBConnection, query);
