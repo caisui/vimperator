@@ -13,6 +13,7 @@ lazyGetter(this, "HatenaBm", function () {
     }, obj);
 });
 
+var showNoComment = true;
 ui.registerSource("hatenta-bookmark", {
     title: "hatena bookmarks",
     keys:["user", "comment", "tags"],
@@ -20,11 +21,19 @@ ui.registerSource("hatenta-bookmark", {
     generator: function () {
         let uri = content.location.href;
         //return this.iterCache(uri, function () {
-        return cache.iter(uri, function () {
+        for (let item in cache.iter(uri, function () {
             //let xhr = util.http.get("http://b.hatena.ne.jp/entry/json/" + content.location.href);
             let xhr = util.http.get("http://b.hatena.ne.jp/entry/jsonlite/?url=" + encodeURIComponent(content.location.href));
             let text = xhr.responseText;
             return text == "null" ?  [] : (HatenaBm(v) for ([, v] in Iterator(JSON.parse(text).bookmarks)));
-        });
-    }
+        })) {
+            if (item.comment || showNoComment) yield item;
+        }
+    },
+    maps: [
+        PMap(["c"], "toggle no comment", function () {
+            showNoComment = !showNoComment;
+            ui.refresh();
+        }),
+    ],
 });
