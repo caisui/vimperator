@@ -1,7 +1,7 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 //"use strict";
 var INFO = //{{{
-<plugin name="piyo-ui" version="0.1.1"
+<plugin name="piyo-ui" version="0.2.0"
         href="http://github.com/caisui/vimperator/blob/master/plugin/piyo-ui.js"
         summary="piyo ui"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -22,6 +22,7 @@ ToDo:
 - 複数の sourceに 跨ぐ選択状態での command
 - 折り返されずに文字が画面外にでる
 - word ハイライト(not 絞り込み)
+--> DOM
 - view の 部分更新
 - 個別 source 専用 stylesheet
 -- 自source 以外には反映されない仕組み
@@ -34,6 +35,11 @@ ToDo:
 - item 生成用に 略記関数(wiki記法とか、zen codingのような)
 - modes.reset への 対応策
 - vim の quickfix のような表示方法
+- normal,regex,migemo を mapで切り替え
+- DOM 必要部位のみappend してパフォーマンス改善
+-- test中
+- PiyoItem
+-- property の 見直し
 
 
 Bug:
@@ -48,6 +54,14 @@ Done:
 - 疑似非同期 item 列挙
 - 絞り込み検索
 - 否定検索
+
+Test:
+- iframe -> browser
+-- setAttribute("type", "content-targetable") がないと isActive を利用できない
+-- isActive で 描画の停止(速度面体感変化無し)
+- nsIDOMWindowUtils
+-- setDisplayPortForElement -> 意図しないタイミングでrepaintが走る
+-- setCSSViewport -> がっつり透明になった
 ]]>
         </description>
     </item>
@@ -132,6 +146,7 @@ function DelayTimer(self, minInterval, callback) //{{{
 }//}}}
 
 
+let (self = this) lazyGetter(userContext, "Deferred", function () self.Deferred);
 lazyGetter(this, "Deferred", function () //{{{
 {
     // 参考: https://github.com/cho45/jsdeferred/
@@ -162,7 +177,7 @@ lazyGetter(this, "Deferred", function () //{{{
         next:  function (callback) this._post({ok:callback}),
         error: function (callback) this._post({ng:callback}),
         both:  function (callback) this._post({ok:callback, ng:callback}),
-        scope: function (callback) {callback(); return this;},
+        local: function (callback) {callback(); return this;},
 
         call: function (value) {
             //log("** fire", this.uuid);
@@ -270,7 +285,7 @@ lazyGetter(this, "Deferred", function () //{{{
         var t = Date.now();
         img.src = "data:image/png," + Math.random();
         return d
-        .next(function (){log("im", Date.now()-t);})
+        //.next(function (){log("im", Date.now()-t);})
         .next(callback);
     };
     D.next_timeout = function (callback) {
@@ -278,7 +293,7 @@ lazyGetter(this, "Deferred", function () //{{{
         var d = new Deferred(function () {clearTimeout(id);});
         var t = Date.now();
         return d
-        .next(function (){log("to", Date.now()-t);})
+        //.next(function (){log("to", Date.now()-t);})
         .next(callback);
     };
     D.next_timer = function (callback) {
@@ -287,7 +302,7 @@ lazyGetter(this, "Deferred", function () //{{{
         var t = Date.now();
         timer.initWithCallback({ notify: function (){d.call();}}, 0, Ci.nsITimer.TYPE_ONE_SHOT);
         return d
-        .next(function (){log("tm", Date.now()-t);})
+        //.next(function (){log("tm", Date.now()-t);})
         .next(callback);
     };
     D.next = D.next_timer;
@@ -358,10 +373,6 @@ lazyGetter(this, "Deferred", function () //{{{
         var d = new Deferred(function () {
             if (iter.close) iter.close();
             return d1.cancel();
-            return d1.cancel()
-            .next(function () {
-                if (iter.close) iter.close();
-            });
         });
 
         if (iter instanceof Function) iter = iter();
@@ -378,6 +389,7 @@ lazyGetter(this, "Deferred", function () //{{{
                         let r = callback.call(this, param)
                         return r;
                     })
+                    //.wait(1000)
                     .next(loop)
                     .error(function (ex) {
                         Cu.reportError(ex);
@@ -389,6 +401,124 @@ lazyGetter(this, "Deferred", function () //{{{
                     d.fail(ex);
             }
         });
+        return d;
+    };
+    D.iter = function _iter(iter, callback, extra) {
+        const self = this;
+        var d1;
+        var d = new Deferred(function () {
+            if (iter.close) iter.close();
+            extra && extra.onCancel && extra.onCancel();
+            return d1.cancel();
+        });
+
+        if (iter instanceof Function) iter = iter();
+        else if (iter instanceof Array) iter = Iterator(iter);
+        //else if (iter instanceof Iterator) 
+
+        function ml() {log("loop", step);}
+        function _error(ex) { d.fail(ex); }
+        function _result(v) {
+            param.result = v;
+            if (isEnd) d.call(v);
+            else _next();
+        }
+        function _next() { d1 = Deferred
+            //.wait(1000).next(ml)
+            .next(_loop)
+            .next(_result)
+            .error(_error);
+            d1.step = ++step;
+        }
+        let step = 0;
+        let isEnd = false;
+        function _loop(value) {
+            try {
+                param.value = iter.next();
+                return callback.call(self, param);
+            } catch (ex if ex instanceof StopIteration) {
+                isEnd = true;
+            } catch (ex) { throw ex; }
+        }
+        var param = {iter: iter};
+        _next();
+        return d;
+    };
+    D._loop = function _loop(param) {
+        const self = this;
+        const value = param.init ?  param.init.call(this, param) : ({});
+        var d = new Deferred(function() { param.cancel && param.cancel(value); d1.cancel()});
+        function _error(ex) {d.fail(ex); }
+        function _next() { d1 = Deferred.next(function () param.callback.call(self, value)).error(_error); }
+        value.next = _next;
+        value.deferred = d;
+        _next();
+        return d;
+    };
+    D.generator = function (generator, callback) { return Deferred._loop({
+        init: function () { return {iter: generator()}; },
+        cancel: function (param) { param.iter.close(); },
+        callback: function (param) {
+            try {
+                param.value = param.iter.next();
+                callback.call(self, param);
+                param.next();
+            } catch (ex if ex instanceof StopIteration) {
+                param.deferred.call();
+            } catch (ex) { throw ex; }
+        },
+    });};
+    D.generator = function _generator(generator, callback) //{{{
+    {
+        const self = this;
+        var d = new Deferred(function () {param.iter.close(); d1.cancel();});
+        var param = { iter: generator(), };
+        function _error(ex) {d.fail(ex); }
+        function _create() { d1 = Deferred.next(_loop).error(_error); }
+        function _loop() {
+            try {
+                param.value = param.iter.next();
+                callback.call(self, param);
+                _create();
+            } catch (ex if ex instanceof StopIteration) {
+            } catch (ex) { throw ex; }
+        }
+        _create();
+        return d;
+    }; //}}}
+    D.array = function _array(array, callback) {
+        const self = this;
+        var d = new Deferred(function () {d1.cancel();});
+        var param = {
+            value: array[0],
+            num: -1,
+            length: array.length,
+            array: array,
+        };
+        function _error(ex) { d.fail(ex); }
+        function _next(v) {
+            if (++param.num < param.length) {
+                param.value = array[param.num];
+                d1 = Deferred.next(_loop).next(_next).error(_error);
+            } else
+                d.call(v);
+        }
+        function _loop() { return callback.call(self, param); }
+        _next();
+        return d;
+    };
+    D.while = function _while(callback) {
+        const self = this;
+        var d = new Deferred(function () {d1.cancel();});
+        var param = {loop: true};
+        function _error(ex) { d.fail(ex); }
+        function _loop() { return callback.call(self, param); }
+        function _next(v) {
+            param.result = v;
+            if (param.loop) d1 = Deferred.next(_loop).next(_next).error(_error);
+            else d.call(v);
+        }
+        _next();
         return d;
     };
     ["wait", "iter"].forEach(function (name) {
@@ -486,6 +616,7 @@ let PiyoUI = Class("PiyoUI", //{{{
         this._scripts = {};
         this._cache = {};
         this.async = true;
+        this.statuspanel = this.box.firstChild;
 
         function NOP() void 0
         this.__defineGetter__("NOP", function() NOP);
@@ -522,6 +653,12 @@ let PiyoUI = Class("PiyoUI", //{{{
         let item = this.items[value];
         if (!item) return;
         mappings._user[modes.PIYO] = item.source.maps;
+    },
+    get line() {
+        let doc = this.doc;
+        let fontSize = parseFloat(this.doc.defaultView.getComputedStyle(this.doc.body, null).fontSize);
+        let line = Math.floor((window.innerHeight/fontSize) * 0.7);
+        return line;
     },
     get selectedItem() this.items[this.index],
     get style() //{{{
@@ -592,31 +729,6 @@ let PiyoUI = Class("PiyoUI", //{{{
                 font-weight: bold;
             }
         ]]> + (liberator.globalVariables.piyo_style || ""), //}}}
-    open: function (source, input, modifiers) //{{{
-    {}, //}}}
-    openAsync: function openAsync(source, input, modifiers) {
-        if (this.build) {
-            log("start", this.filter, this.build);
-            this.abort = {
-                type: "filter",
-                args: Array.splice(arguments, 0)
-            };
-            return;
-        }
-        this.generatorAsync (source, input, modifiers);
-    },
-    abortAction: function () {
-        let inf = this.abort;
-        this.abort = null;
-        switch(inf.type) {
-        case "filter":
-            this.openAsync.apply(this, inf.args);
-            break;
-        case "quit":
-            this.quit();
-            break;
-        }
-    },
     generatorAsync: function generatorAsync(source, input, modifiers) //{{{
     {
         const self = this;
@@ -652,7 +764,7 @@ let PiyoUI = Class("PiyoUI", //{{{
         const self = this;
         this._stack.push(
         // xxx: 現仕様では、_source から 再作成する必要があるため、_contexts, items, index は 再利用できない
-        ["_filter", "_source", "_cache",
+        ["_filter", "_source", "_cache", "_contexts", "index", "items"
             //"_contexts", "items", "index"
         ].reduce(function (obj, name) {
             obj[name] = self[name];
@@ -667,7 +779,12 @@ let PiyoUI = Class("PiyoUI", //{{{
         for (let[name, value] in Iterator(this._stack.pop()))
             this[name] = value;
         this.editor.value = this._filter;
-        this._buildItems(this._filter, this._source, null);
+        let index = this.index;
+        this.refresh()
+        .next(function () {
+            self.select(index);
+        });
+        //this._buildItems(this._filter, this._source, null);
     },
     showBox: function () {
         this.setTimeout(function () {
@@ -705,134 +822,9 @@ let PiyoUI = Class("PiyoUI", //{{{
         doc.body.appendChild(main);
         doc.body.appendChild(bottom);
     },
-    _buildItems: function _buildItems(filter, sourceGenerator, modifiers) {
-        const self = this;
-        const thread = services.get("threadManager").mainThread;
-        self._deferred = null;
-
-        if (!modifiers) modifiers = {};
-        if ([modes.PIYO, modes.PIYO_I].indexOf(liberator.mode) < 0)
-            modes.set(modes.PIYO);
-
-        this.modifiers = modifiers;
-
-        try {
-            this.tid = 0;
-            this.abort = false;
-            this.build = true;
-
-            this._contexts = [];
-            this.items = [];
-            this.index = -1;
-            this._filter = filter;
-            this._source = sourceGenerator;
-
-            let doc = this.doc;
-            let main = doc.getElementById("main");
-            let async = this.async;
-            //if (this.box.collapsed) {
-                main.innerHTML = "";
-            //}
-
-            let duration = Date.now();
-            item_generator: for (let source in sourceGenerator()) {
-                let items = [];
-                let context = source(source.name, this);
-                this._contexts.push(context);
-
-                // view
-                let root = util.xmlToDom(context.createRoot(), doc);
-                let (title = root.querySelector(".title")) {
-                    if (title) title.textContent = context.title || "no name";
-                }
-                //doc.body.appendChild(root);
-                main.appendChild(root);
-                let (node = root.querySelector(".content")) {
-                    if (node) root = node;
-                    else root.classList.add("content");
-                }
-
-                let node = doc.createDocumentFragment();
-                context.filter = filter;
-                let highlighter = context.getHighlighter(filter);
-
-                let iterItem = context.generator(self);
-                if (iterItem instanceof Array) {
-                    iterItem = util.Array.itervalues(iterItem);
-                }
-
-                // items offset
-                context.offset = items.length;
-                let nextUpdate = Date.now() + interval;
-                let max = 0, cnt = 0, min = Infinity;
-                for (let item in iterItem) {
-                    var aCnt = 0;
-
-                    if (async)
-                        while (thread.processNextEvent(false)) aCnt ++;
-                    max = Math.max(max, aCnt);
-                    min = Math.min(min, aCnt);
-                    cnt += aCnt;
-                    if (self.abort) {
-                        log("abort", self.abort);
-                        iterItem.close();
-                        self.setTimeout(function () {
-                            this.abortAction();
-                        }, 0);
-                        break item_generator;
-                    }
-                    context.items.push(item);
-                    let hi = highlighter(item);
-                    if (hi) {
-                        let view = util.xmlToDom(context.createView(item, highlighter(item)), doc);
-                        //let view = xmlToDom(context.createView(item, highlighter(item)), doc);
-                        view.classList.add("item");
-                        node.appendChild(view);
-                        items.push(PiyoItem(item, view, context));
-
-                        let max = 1, len = self.items.length;
-                        if (len > 1000) {
-                            max = 500;
-                        } else if (len > 20) {
-                            max = 100;
-                        }
-                        if ((Date.now() - duration > 500) && node.childNodes.length > max) {
-                            root.appendChild(node);
-                            node = doc.createDocumentFragment();
-                            self.items = Array.concat(self.items || [], items);
-                            items = [];
-
-                            if (self.index === -1) {
-                                this.showBox();
-                            }
-
-                            self._resizer.tell();
-                            self._updateStatus.tell();
-                            duration = Date.now();
-                        }
-                    }
-                }
-                root.appendChild(node);
-                self.items = Array.concat(self.items || [], items);
-            }
-            if (this._contexts.length === 0) {
-                self.echoerr("no create sources");
-                return;
-            }
-        } finally {
-            this.build = false;
-
-            if (this.abort) return;
-
-            this._updateStatus.tell();
-            this._resizer.tell();
-            this.showBox();
-        }
-    },
     hide: function () {
         //window.setTimeout(function () ui.box.collapsed = true, 0);
     },
-    refresh: function () this.openAsync(this.original, this.filter, this.modifiers),
     quit: function () {
         if (this.build) {
             this.abort = {
@@ -900,7 +892,18 @@ let PiyoUI = Class("PiyoUI", //{{{
     },
     scroll: function (index, relative) {
         if (this.index === -1) return;
-        if (relative) index += this.index;
+        if (relative) {
+            let item = this.selectedItem;
+            let rect = item.dom.getBoundingClientRect();
+            if (index < 0 && rect.top < 0) {
+                this.doc.defaultView.scrollByLines(-1);
+                return;
+            } else if (index > 0 && this.doc.defaultView.innerHeight < rect.bottom) {
+                this.doc.defaultView.scrollByLines(1);
+                return;
+            }
+            index += this.index;
+        }
         else if (index < 0) index = this.items.length - 1;
         else index = index - 1;
         index = Math.max(0, Math.min(this.items.length - 1, index));
@@ -909,36 +912,210 @@ let PiyoUI = Class("PiyoUI", //{{{
         if (!item) return;
         item.unselect();
 
-        item = this.items[this.index = index];
-        item.select();
-        util.nodeScrollIntoView(item.view, -1, -1);
+        this.select(index);
+        //item = this.items[this.index = index];
+        //item.select();
+        //util.nodeScrollIntoView(this.selectedItem, -1, -1);
 
         if (liberator.mode === modes.PIYO)
             modes.show();
     },
-    scrollByPages: function (count) {
-        let win = this.iframe.contentWindow;
-        win.scrollByPages(count);
+    select: function (index) {
+        var doc = this.doc;
+        let main = doc.getElementById("main");
+        let context = this._contexts[0];
+        let root = util.xmlToDom(context.createRoot(), doc);
+        let (title = root.querySelector(".title")) {
+            if (title) title.textContent = "[df] " + (context.title || "no name");
+        }
+        let node = root.querySelector(".content") || root;
+        node.classList.add("content");
 
-        let e = this.doc.elementFromPoint(4, count < 0 ? 4 : win.innerHeight - 4);
-        while (e && e.classList && !e.classList.contains("item"))
-            e = e.parentNode;
+        //this.lock();
 
-        // todo: caption
-        let self = this;
-        e && this.items.some(function (item, n) {
-            if (item.view === e) {
-                self.selectedItem.unselect();
-                self.index = n;
-                item.select();
-                util.nodeScrollIntoView(e, -1, -1);
+        let fontSize = parseFloat(this.doc.defaultView.getComputedStyle(this.doc.body, null).fontSize);
+        let line = Math.floor((window.innerHeight/fontSize) * 0.7);
+        if (this.index >= 0)
+            this.items[this.index].unselect();
 
-                if (liberator.mode === modes.PIYO)
-                    modes.show();
-                return true;
+        const self = this;
+
+        if ((index < this._begin) || this._begin == -1) {
+            this.fill(index, index - line, index + line, true);
+        } else if (this._end <= index) {
+            this.fill(index, index - line, index + line, false);
+        } else {
+            if (this._begin == index)
+                self.doc.documentElement.scrollTop = 0; 
+            else
+                util.nodeScrollIntoView(this.items[index].dom, -1, -1);
+            this.index = index;
+            this.items[index].select();
+        }
+
+        this.showBox();
+        this._resizer.tell();
+        this.updateStatus();
+        //this.unlock();
+    },
+    _fill: function _fill(begin, end) {
+        var doc = this.doc;
+        var frag = doc.createDocumentFragment();
+        var range = doc.createRange();
+        var main = doc.getElementById("main");
+
+        begin = this._begin = Math.max(begin, 0);
+        end =   this._end   = Math.min(end, this.items.length);
+
+        log("fill", begin, end);
+
+        let src = null;
+        for (let i = begin; i < end; ++i) {
+            let item = this.items[i];
+            if (src != (src = item.source)) {
+                var root = util.xmlToDom(this.items[this._begin].source.createRoot(), doc);
+                var node = root.querySelector(".content") || root;
+                node.classList.add("content");
+                frag.appendChild(root);
             }
-            return false;
-        });
+            node.appendChild(item.dom);
+        }
+        range.selectNodeContents(main);
+        range.deleteContents();
+        range.insertNode(frag);
+
+        this._begin = begin;
+        this._end   = end;
+    },
+    fill: function (index, begin, end, isTop) {
+        if (this.index >= 0)
+            this.selectedItem.unselect();
+
+        this._fill(begin, end);
+
+        this.index  = index;
+
+        this.selectedItem.select();
+        this.updateStatus();
+
+        if (begin == index)
+            this.doc.documentElement.scrollTop = 0;
+        else
+            this.items[index].dom.scrollIntoView(!!isTop);
+    },
+    fill2: function (index) {
+        let doc = this.doc;
+        let fontSize = parseFloat(this.doc.defaultView.getComputedStyle(this.doc.body, null).fontSize);
+        let line = Math.floor((window.innerHeight/fontSize) * 0.7);
+        let begin = Math.max(this.index - line, 0);
+        let end   = Math.min(this.index + line, this.items.length);
+        let aI, aJ, bI, bJ;
+        let aRange, bRange, range;
+        let main = doc.getElementById("main");
+        aRange = doc.createRange();
+
+        if (begin < this._begin) {
+            aI = begin;
+            aJ = this._begin;
+            bI = end;
+            bJ = this._end;
+            aRange.selectNodeContents(main);
+            bRange = aRange.cloneRange();
+            aRange.collapse(true);
+            bRange.collapse(false);
+        } else {
+            bI = begin;
+            bJ = this._begin;
+            aI = this._end;
+            aJ = end;
+            aRange.selectNodeContents(main);
+            bRange = aRange.cloneRange();
+            bRange.collapse(true);
+            aRange.collapse(false);
+        }
+
+        var root = util.xmlToDom(this.items[aI].source.createRoot(), doc);
+        var node = root.querySelector(".content") || root;
+        node.classList.add("content");
+        for (let i = aI; i < aJ; ++i) {
+            let item = this.items[i];
+            node.appendChild(item.dom);
+        }
+        alert([this.index, line, aI,aJ, bI, bJ]);
+        if (bI < bJ) {
+            bRange.selectNode(this.items[bJ - 1].dom);
+            bRange.setStart(this.items[bI].dom, 0);
+            bRange.deleteContents();
+        }
+
+        aRange.insertNode(root);
+        this._begin = begin;
+        this._end = end;
+    },
+    scrollByPages: function (count) {
+        if (this._begin == -1) {
+        } else if (count > 0) {
+            let doc = this.doc;
+            let fontSize = parseFloat(this.doc.defaultView.getComputedStyle(this.doc.body, null).fontSize);
+            let line = this.line;
+
+            let bottom = this.doc.defaultView.innerHeight;
+            let i, end;
+            for (i = this.index, end = this._end; i < end; ++i) {
+                let item = this.items[i];
+                let rect = item.dom.getBoundingClientRect();
+                if (bottom <= rect.bottom)
+                    break;
+            }
+            if (this.index == i)
+                this.doc.defaultView.scrollByPages(1);
+            else {
+                this.fill(Math.min(i, this.items.length), i -line, i + line, true);
+            }
+        } else {
+            let doc = this.doc;
+            let line = this.line;
+
+            let i, end;
+            for (i = this.index; i >= 0; --i) {
+                let item = this.items[i];
+                let rect = item.dom.getBoundingClientRect();
+                if (rect.top <= 0)
+                    break;
+            }
+            if (this.index == i)
+                doc.defaultView.scrollByPages(-1);
+            else
+                this.fill(Math.max(i, 0), i -line, i + line, false);
+        }
+    },
+    scrollIntoView: function scrollIntoView(aVPercent, aHPercent) {
+        if (aVPercent == void 0) aVPercent = -1;
+        if (aHPercent == void 0) aHPercent = -1;
+
+        let dom = this.selectedItem;
+        if (!dom) return;
+        else dom = dom.dom;
+
+        if (0 < aVPercent && aVPercent < 100) {
+            let line = this.line;
+            let line2 = this.line / 2;
+            let index = this.index;
+            let offset = Math.floor(aVPercent * line2 / 100);
+            if ((this._begin > 0 && (this._begin > (index - offset)))
+                || ((this._end < this.items.length) && (this._end < (index + line2 - offset)))) {
+
+                //alert(1);
+                ui._fill(index - line, index + line);
+                liberator.threadYield(true);
+            }
+        }
+
+        if (aHPercent == -1 && (aVPercent == 0 || aVPercent == 100))
+            dom.scrollIntoView(aVPercent == 0);
+        else {
+            util.nodeScrollIntoView(dom, aVPercent, aHPercent);
+        }
     },
     addAlias: function (name, aliases) {
         this._aliases[name] = aliases;
@@ -1015,13 +1192,18 @@ let PiyoUI = Class("PiyoUI", //{{{
         let dir = io.File(piyo.PATH).parent;
         dir.append("piyo");
         dir = io.File(dir);
-        let self = this;;
+        let self = this;
+        let t = Date.now();
+        log("plugin load start");
         if (dir.exists() && dir.isDirectory()) {
             dir.readDirectory().forEach(function(f) self.loadPiyo(f));
         }
+        log("plugin load end " + (Date.now() - t) + "ms");
     },
     getCommands: function () {
         let items = ui.items;
+        if (items.length == 0) return PiyoCommands.commonCommands([]);
+
         let commands = this._contexts.filter(function (c) {
                 for(let i = c.offset, last = c.itemLength - c.offset; i < last; ++i) {
                     if (items[i].mark) return true;
@@ -1034,7 +1216,7 @@ let PiyoUI = Class("PiyoUI", //{{{
         this.build = false;
         let f = this.abort;
         try {
-            this.abortAction();
+            //this.abortAction();
         } finally {
             this.abort = null;
         }
@@ -1049,27 +1231,32 @@ let PiyoUI = Class("PiyoUI", //{{{
     echoerr: function () let(args = Array.splice(arguments, 0)) this.setTimeout(function () liberator.echoerr.apply(liberator, args), 0),
     get rowStateE4X() <>[{this.index + 1}/{this.items.length}{this.build ? "*" : ""}]</>,
     updateStatus: function () {
+        let item = this.selectedItem;
+        if (item)
+            this.statuspanel.label = item.source.title || "no name";
+
         if (liberator.mode == modes.PIYO) {
             modes.show();
         } else {
             commandline._setPrompt(this.rowStateE4X.toString());
         }
     },
-    openAsync: function (source, value) {
-        this.dOpen(source, value);
+    openAsync: function (source, value, modifiers) {
+        this.dOpen(source, value, modifiers);
     },
-    dOpen: function (source, value) {
+    dOpen: function (source, value, modifiers) {
         const self = this;
         this._deferred = Deferred
             .next(function () {
-                return self.dfOpen(source, value);
+                return self.dfOpen(source, value, modifiers);
             })
             .error(function(ex) {
+                if (!ex) return;
                 liberator.echoerr(ex);
                 Cu.reportError(ex);
             });
     },
-    dfOpen: function (source, value) {
+    dfOpen: function (source, value, modifiers) {
         if (typeof source == "string") {
             source = source.split(" ");
         }
@@ -1091,7 +1278,7 @@ let PiyoUI = Class("PiyoUI", //{{{
         this._filter = value;
         this.editor.value = value;
         modes.set(modes.PIYO);
-        this.modifiers = {};
+        this.modifiers = modifiers || {};
         return this.dfShow();
     },
     input: function (input, source) {
@@ -1108,7 +1295,7 @@ let PiyoUI = Class("PiyoUI", //{{{
         return this._deferred = this.dfShow();
     },
     refresh: function() {
-        this._deferred = this.dfShow();
+        return this._deferred = this.dfShow();
     },
     dfRefresFilter: function () {
         if (this._filter == this.editor.value) return;
@@ -1116,14 +1303,25 @@ let PiyoUI = Class("PiyoUI", //{{{
         this._deferred.cancel();
         this._deferred = Deferred.wait(300)
         .next(function () {
+            //let doc = self.doc;
+            //let main = doc.getElementById("main");
+            //let r = doc.createRange();
+            //r.selectNodeContents(main);
+            //r.deleteContents()
             self._filter = ui.editor.value;
         })
         .next(function () self.dfShow())
         .error(function (ex) alert(ex));
     },
-    dfShow: function () {
+    dfShow: function () //{{{
+    {
         const self = this;
         let items = this.items = [];
+        let fontSize = parseFloat(this.doc.defaultView.getComputedStyle(this.doc.body, null).fontSize);
+        let line = Math.floor((window.innerHeight/fontSize) * 0.7);
+        const nav = self.doc.defaultView
+                .QueryInterface(Components.interfaces.nsIInterfaceRequestor)
+                .getInterface(Components.interfaces.nsIWebNavigation);
         return Deferred
         .next(function () {
             self.index = -1;
@@ -1173,12 +1371,13 @@ let PiyoUI = Class("PiyoUI", //{{{
             let highlighter = context.getHighlighter(self._filter);
             let isOdd = 1;
             let list = [];
+            let isFirst = true;
 
             return Deferred.next(function(){})
             .iter(iter, function (param) {
                 let item = param.value;
-                //for (let item = param.value, time = Date.now() + 100; Date.now() < time; item = param.iter.next()) {
-                let (item = param.value) {
+                for (let item = param.value, time = Date.now() + 100; Date.now() < time; item = param.iter.next()) {
+                //let (item = param.value) {
 
                     context.items.push(item);
                     let hi = highlighter(item);
@@ -1193,9 +1392,12 @@ let PiyoUI = Class("PiyoUI", //{{{
                         list[list.length] = PiyoItem(item, view, context);
                     }
                 }
+                log(list.length);
 
-                if (node.childNodes.length > 500) {
+                if (isFirst) {
+                //if (node.childNodes.length > 500) {
                     updateItem();
+                    isFirst = false;
                 }
             })
             .next(updateItem);
@@ -1208,7 +1410,105 @@ let PiyoUI = Class("PiyoUI", //{{{
             Cu.reportError(ex);
         })
         ;
+    }, //}}}
+    dfShow: function () //{{{
+    {
+        const self = this;
+        const doc = self.doc;
+        const main = doc.getElementById("main");
+        let items = this.items = [];
+        const nav = self.doc.defaultView
+                .QueryInterface(Components.interfaces.nsIInterfaceRequestor)
+                .getInterface(Components.interfaces.nsIWebNavigation);
+        var time = Date.now();
+        return Deferred
+        .next(function () {
+            self.index = -1;
+            self._begin = self._end = -1;
+            // クリアするとちらつく
+            let r = doc.createRange();
+            r.selectNodeContents(main);
+            r.deleteContents()
+        }).iter(this._contexts, function (param) {
+            let [,context] = param.value;
+            let doc = self.doc;
+            let main = doc.getElementById("main");
+
+            let root = util.xmlToDom(context.createRoot(), doc);
+            let (title = root.querySelector(".title")) {
+                if (title) title.textContent = "[df] " + (context.title || "no name");
+            }
+
+            main.appendChild(root);
+            let (node = root.querySelector(".content")) {
+                if (node) root = node;
+                else root.classList.add("content");
+            }
+            //
+            // items offset
+            context.offset = items.length;
+            let node = doc.createDocumentFragment();
+
+            function updateItem() {
+                self._resizer.tell();
+                self._updateStatus.tell();
+            }
+
+            context.filter = self._filter;
+            let iter = context.generator(self);
+            let highlighter = context.getHighlighter(self._filter);
+            let isFirst = true;
+            let list = items;
+
+            function updateItem() {
+                if (!self.noupdate && self.index == -1 && self.items.length > 0)
+                    self.select(0);
+            }
+
+            return Deferred.next(function(){})
+            .iter(iter, function (param) {
+                let item = param.value;
+                for (let item = param.value, time = Date.now() + 100; Date.now() < time; item = param.iter.next()) {
+                    context.items.push(item);
+                    let hi = highlighter(item);
+                    if (hi) {
+                        hi.index = list.length;
+                        list[hi.index] = PiyoItem2(item, hi, context);
+                    }
+                }
+                log(list.length);
+
+                if (isFirst && list.length > 0) {
+                    updateItem();
+                    isFirst = false;
+                } else self.updateStatus();
+            })
+            .next(updateItem);
+        })
+        .next(function (e) {
+            log("end", Date.now() - time);
+        })
+        .error(function (ex) {
+            liberator.echoerr(ex);
+            Cu.reportError(ex);
+        })
+        ;
+    }, //}}}
+    _lock: function _lock (isLock) {
+        let win = this.doc.defaultView;
+        let wUitl = win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
+        let [w, h] = !isLock ? [win.innerHeight, win.innerWidth] : [0, 0];
+        //wUitl.setDisplayPortForElement(0, 0, h, w, win.document.documentElement);
+        //wUitl.setCSSViewport(0, 0);
+        //this.iframe.docShell.isActive = !isLock;
+        //log("ac", this.iframe.docShell.isActive.toString());
+        //if (!isLock)
+        //    wUitl.redraw();
+        let baseWindow =  this.iframe.docShell.QueryInterface(Ci.nsIBaseWindow);
+        baseWindow.setPosition(w, h);
     },
+    lock: function lock() this._lock(true),
+    unlock: function unlock() this._lock(false),
 }, {
 }); //}}}
 
@@ -1219,6 +1519,7 @@ let PiyoSource = Class("PiyoSource", //{{{
 
         if (this.onLoad) this.onLoad();
 
+        this._ui = ui;
         this._cache = ui._cache[name] || (ui._cache[name] = {});
 
         let stack = [];
@@ -1236,7 +1537,8 @@ let PiyoSource = Class("PiyoSource", //{{{
     //createRoot: function () <table style="border-collapse:collapse;"><caption class="title"/><tbody class="content">
     //<style><![CDATA[tr.item>td:last-child{width:100%;}]]></style>
     //</tbody></table>,
-    createRoot: function () <table style="border-collapse:collapse;"><style><![CDATA[tr>td:last-child{width:100%;}]]></style><caption class="title"/></table>,
+    //createRoot: function () <table style="border-collapse:collapse;"><style><![CDATA[tr>td:last-child{width:100%;}]]></style><caption class="title"/></table>,
+    createRoot: function () <table style="border-collapse:collapse;"><style><![CDATA[tr>td:last-child{width:100%;}]]></style></table>,
     getHighlighter: function () {
         let filter = this.filter.trim();
         let keys = this.keys;
@@ -1311,7 +1613,24 @@ let PiyoSource = Class("PiyoSource", //{{{
                     let hi = {};
                     for (let [attr, text] in Iterator(val)) {
                         let a = ret[attr];
-                        a.sort(function (a, b) a.pos - b.pos);
+                        a.sort(function (a, b) a.pos - b.pos || a.len - b.len);
+
+                        //ハイライト範囲の重複除去
+                        let b = [], offset = 0;
+                        for (let i = 0, j = a.length; i < j; ++i) {
+                            val = a[i];
+                            if (offset <= val.pos) {
+                                b[b.length] = val;
+                                offset = val.pos + val.len;
+                            } else {
+                                let offset2 = val.pos + val.len;
+                                if (offset < offset2) {
+                                    b[b.length] = {pos: offset, len: offset2 -offset};
+                                    offset = offset2;
+                                }
+                            }
+                        }
+                        a = b;
                         if (fx3) {
                             a = (function (a) {
                                 for (let [, {pos: pos, len: len}] in Iterator(a)) yield [pos, len];
@@ -1401,15 +1720,44 @@ let PiyoItem = Class("PiyoItem", //{{{
         this.source = context;
         this.__defineGetter__("_mark", function () this.view.querySelector(".mark"));
     },
-    select: function () {
-        this.view.setAttribute("selected", true);
+    select: function () { this.view.setAttribute("selected", true); },
+    unselect: function () { this.view.removeAttribute("selected"); },
+    get mark() {
+        if (!this._dom) return false;
+        let q = this._mark;
+        return q && q.textContent
     },
-    unselect: function () {
-        this.view.removeAttribute("selected");
-    },
-    get mark() let(q = this._mark) q && q.textContent,
     set mark(value) let (q = this._mark) q && (q.textContent = value ? "*" : ""),
-    toggleMark: function () this.mark = !this.mark,
+    toggleMark: function (doc) this.mark = !this.mark,
+});//}}}
+
+let PiyoItem2 = Class("PiyoItem", PiyoItem, //{{{
+{
+    init: function init(item, highlight, context) {
+        this.item = item;
+        this.highlight = highlight;
+        this.source = context;
+        this._mark = "";
+    },
+    get mark() this._mark,
+    set mark(value) {
+        let dom = this._dom
+        if (dom) {
+            (dom.querySelector(".mark")||{}).textContent = value ? "*" : "";
+        }
+        this._mark = value;
+    },
+    get view() this.dom,
+    get dom() {
+        if (this._dom) return this._dom;
+
+        let dom =  util.xmlToDom(this.source.createView(this.item, this.highlight), this.source._ui.doc); 
+        dom.classList.add("item");
+        if (this.highlight.index & 1) dom.classList.add("odd");
+        this._dom = dom;
+        if (this._mark) this.mark = this._mark;
+        return dom;
+    },
 });//}}}
 
 let PiyoCache = Class("PiyoCache", //{{{
@@ -1505,11 +1853,15 @@ let onUnload = (function () // {{{
         p.insertBefore(_box, bottom);
 
         let iframe = document.createElementNS(XUL, "iframe");
+        let statuspanel = document.createElementNS(XUL, "statuspanel");
+        //let iframe = document.createElementNS(XUL, "browser");
+        //iframe.setAttribute("type", "content-targetable");
         iframe.id = _box.id + "-iframe";
         iframe.flex = 1;
 
         self.iframe = iframe;
 
+        _box.appendChild(statuspanel);
         _box.appendChild(iframe);
 
         let style = document.createElementNS(XHTML, "style");
@@ -1557,6 +1909,7 @@ let onUnload = (function () // {{{
         }, true);
         let bufferURI = "chrome://liberator/content/buffer.xhtml";
         iframe.setAttribute("src", bufferURI);
+        //iframe.loadURI(bufferURI);
 
         dispose.$push = proxyClass(modules.events, {
             onFocusChange: function (event) {
@@ -1641,7 +1994,7 @@ let onUnload = (function () // {{{
         modes.addMode("PIYO_I", {char: "pi", input: true, display: -1});
     }
     modes.getMode(modes.PIYO).display =
-        function() <>PIYO #{ui.editor.value}# {ui.rowStateE4X}</>;
+        function() <>{let (i=ui.selectedItem) i ? i.source.title || "no name": "PIYO"} #{ui.editor.value}# {ui.rowStateE4X}</>;
 
     modes.reset = function _reset(silent) {
         this._modeStack = [];
@@ -1657,13 +2010,15 @@ let onUnload = (function () // {{{
     [ //mapping PIYO
         [["j", "<Down>", "<Tab>"], "down", function (count) ui.scroll(Math.max(count,  1), true), {count: true}],
         [["k", "<Up>", "<s-Tab>"], "up",   function (count) ui.scroll(-Math.max(count, 1), true), {count: true}],
-        [["<C-f>", "<PageDown>"], "page scroll down", function (count) ui.scrollByPages( Math.max(count, 1)), {count: true}],
-        [["<C-b>", "<PageUp>"], "page scroll up",   function (count) ui.scrollByPages(-Math.max(count, 1)), {count: true}],
+        [["<C-f>", "<PageDown>"], "page scroll down", function (count) ui.scrollByPages(Math.max(count, 1)) ,{count:true}],
+        [["<C-b>", "<PageUp>"],   "page scroll up",   function (count) ui.scrollByPages(-Math.max(count, 1)),{count:true}],
         [["<C-c>"], "stop search", function () {
             if (ui._deferred) ui._deferred.cancel();
             else ui.build && (ui.abort = true);
         }],
         [["<Esc>"], "", function () {
+            // <HEAD> で echoerr が 邪魔なので
+            if (commandline._modeWidget && commandline.message) { commandline._echoLine(""); return; }
             if (ui._deferred) ui._deferred.cancel();
             ui.quit();
         }],
@@ -1680,6 +2035,12 @@ let onUnload = (function () // {{{
         [["<S-Space>"], "toggle mark previous", function () {
             ui.selectedItem.toggleMark();
             ui.scroll(-1, true);
+        }],
+        [["gs"], "", function () {
+            if ("docShell" in ui.iframe) {
+                ui.iframe.docShell.isActive = !ui.iframe.docShell.isActive;
+            }
+            //ui.lock(true);
         }],
         [["gg"], "", function(count) ui.scroll(nullOr(count,  1)), {count: true}],
         [["G"],  "", function(count) ui.scroll(nullOr(count, -1)), {count: true}],
@@ -1708,9 +2069,12 @@ let onUnload = (function () // {{{
                 }
             });
         }],
-        [["zt"], "top",    function () util.nodeScrollIntoView(ui.selectedItem.view, 0,   -1)],
-        [["zz"], "center", function () util.nodeScrollIntoView(ui.selectedItem.view, 50,  -1) || ui._resizer.tell()],
-        [["zb"], "bottom", function () util.nodeScrollIntoView(ui.selectedItem.view, 100, -1)],
+        //[["zt"], "top",    function () util.nodeScrollIntoView(ui.selectedItem.view, 0,   -1)],
+        //[["zz"], "center", function () util.nodeScrollIntoView(ui.selectedItem.view, 50,  -1) || ui._resizer.tell()],
+        //[["zb"], "bottom", function () util.nodeScrollIntoView(ui.selectedItem.view, 100, -1)],
+        [["zt"], "top",    function () ui.scrollIntoView(0)],
+        [["zz"], "center", function () ui.scrollIntoView(50)],
+        [["zb"], "bottom", function () ui.scrollIntoView(100)],
         [["<Return>"], "execute default action", function () {
             ui.execute("default");
         }],
@@ -1724,9 +2088,9 @@ let onUnload = (function () // {{{
     [ // mapping PIYO_I
         [["<C-n>"], "down", function () ui.scroll( 1, true)],
         [["<C-p>"], "up", function () ui.scroll(-1, true)],
-        //[["<C-n>"], "normal filter", function () ui.matcherType = "n"],
-        //[["<C-m>"], "migemo filter", function () ui.matcherType = "m"],
-        //[["<C-r>"], "regex filter", function () ui.matcherType = "r"],
+        //[["<C-s>n"], "normal filter", function () ui.matcherType = "n"],
+        //[["<C-s>m"], "migemo filter", function () ui.matcherType = "m"],
+        //[["<C-s>r"], "regex filter",  function () ui.matcherType = "r"],
         [["<Esc>", "<Return>"], "escape PIYO_I", function () {
             modes.set(modes.PIYO)
             commandline.hide();
@@ -1974,7 +2338,15 @@ let util = // {{{
                 post: postdata
             });
         }
-    }
+    },
+    openUrl: function (urls) Deferred.next(function () Deferred.array(
+        Array.concat(arguments.length > 1 ? arguments : urls),
+        function (param) {
+            let tab = gBrowser.addTab();
+            let browser = tab.linkedBrowser;
+            browser.loadURI(param.value);
+            return Deferred.domEvent(browser, "load", true);
+        })),
 }; //}}}
 
 /// fx3
