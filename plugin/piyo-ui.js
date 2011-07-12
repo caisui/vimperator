@@ -2244,6 +2244,12 @@ let util = // {{{
             browser.loadURI(param.value);
             return Deferred.domEvent(browser, "load", true);
         })),
+    getFavicon: function (uri) {
+        try {
+            let favicon = services.get("favicon");
+            return favicon.getFaviconImageForPage(makeURI(uri)).spec;
+        } catch (ex) {}
+    },
 }; //}}}
 
 /// fx3
