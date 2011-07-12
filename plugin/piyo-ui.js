@@ -1,7 +1,7 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 //"use strict";
 var INFO = //{{{
-<plugin name="piyo-ui" version="0.2.0"
+<plugin name="piyo-ui" version="0.2.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/piyo-ui.js"
         summary="piyo ui"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -18,7 +18,6 @@ var INFO = //{{{
 <![CDATA[
 ToDo:
 - fold 機能
-- stack 型多段 piyo
 - 複数の sourceに 跨ぐ選択状態での command
 - 折り返されずに文字が画面外にでる
 - word ハイライト(not 絞り込み)
@@ -29,21 +28,22 @@ ToDo:
 - source を他 plugin から 拡張する手段
 - 単一選択用/複数選択用 map/command を 認識できる手段
 - 固有 map 一覧の確認方法
-- Deferred っぽい仕組み
--- test 中
 - util.http.post の 実装
 - item 生成用に 略記関数(wiki記法とか、zen codingのような)
 - modes.reset への 対応策
 - vim の quickfix のような表示方法
 - normal,regex,migemo を mapで切り替え
-- DOM 必要部位のみappend してパフォーマンス改善
--- test中
 - PiyoItem
 -- property の 見直し
+
+Test:
+- stack 型多段 piyo
+- Deferred っぽい仕組み
 
 
 Bug:
 - 高さ調整が上手くいかないパターンがある
+-- 画像の読込による高さの変更
 - 表示候補数0でmap, commandが 動かない
 
 
@@ -202,7 +202,7 @@ lazyGetter(this, "Deferred", function () //{{{
             if (this._state == Deferred.DONE) {
                 var self = this.init();
                 Deferred.next(function () self);
-            } 
+            }
             return this;
         },
 
@@ -232,7 +232,7 @@ lazyGetter(this, "Deferred", function () //{{{
                         Deferred.lazyCall(breaker);
                         return;
                     }
-                        
+
                     if (result instanceof Deferred) {
                         this._nest = result;
                         result._msg = this._msg;
@@ -259,20 +259,18 @@ lazyGetter(this, "Deferred", function () //{{{
 
         cancel: function () {
             log("cancel");
-            var d;
-            let list = [];
-            const self = this;
-            ["_parent", "_nest"].forEach(function (attr) {
-                for (d = self[attr]; d; d = d[attr]) {
-                    list.push(d);
-                }
-            });
             this._nest ? this._nest.cancel() : this._canceller && this._canceller();
-            return 
+            this._nest = this._parent = null;
         },
 
-        pause:  function () this._nest ? this._nest.pause()  : this._breaker = Deferred.new(),
-        resume: function () this._nest ? this._nest.resume() : this._fire(this._result),
+        // 保留
+        //pause:  function () this._nest ? this._nest.pause()  : this._breaker = Deferred.new(),
+        //resume: function () this._nest ? this._nest.resume() : this._fire(this._result),
+
+        Deferred: function Deferred(funcname) {
+            var args = Array.slice(arguments, 1);
+            return this.next(function (val) Deferred[funcname].apply(Deferred, args));
+        },
     };
 
     D.PREPARE = {};
@@ -331,8 +329,21 @@ lazyGetter(this, "Deferred", function () //{{{
     D.httpGet = function (url, query) {
         var d = new Deferred();
         var xhr = new XMLHttpRequest();
-        var d1 = Deferred.domEvent(xhr, "readystatechange").next(function (e) d2.cancel() && d.call(xhr));
-        var d2 = Deferred.domEvent(xhr, "error").next(function (e) d1.cancel() && d.fail(xhr));
+        function cancel() {
+            xhr.onreadystatechange = xhr.onerror = "";
+            xhr.abort();
+        }
+        function callback() {
+            cancel();
+            d.call(xhr);
+        }
+        function error() {
+            cancel();
+            d.fail(xhr);
+        }
+        xhr.onreadystatechange = callback;
+        xhr.onerror = error;
+
         xhr.send(url);
 
         return d;
@@ -341,66 +352,36 @@ lazyGetter(this, "Deferred", function () //{{{
         var d = new Deferred(canceller);
         return d;
     };
-    D.parallel = function (list) {
-        if (arguments.length > 1) list = Array.slice(arguments);
-        var obj = {}, count = list.length, results;
+    // 要検証
+    D.parallel = function (callbacks) {
+        if (arguments.length > 1) callbacks = Array.slice(arguments);
+        var obj = {}, count = callbacks.length, results = new Array(count);
         var d = new Deferred(cancel);
-        list.forEach(function (d, i) {
-            if (typeof (d) == "function") d =  Deferred.next(d);
-            obj[i] = new Deferred(cancel).next(function () d)
-                .both(function (val) {
-                    delete objs[i];
-                    return val;
-                })
-                .next(function (val) {
-                    results[i] = val;
-                    if (--count <= 0)
-                        d.call(results);
-                })
-                .error(function (ex) {
-                    cancel();
-                    d.fail(ex);
-                });
-            ;
+        callbacks.forEach(function (callback, i) {
+            if (typeof (callback) == "function") callback = Deferred.next(callback);
+            callback.index = i;
+            obj[i] = callback
+                .both(deleteQueue)
+                .next(success)
+                .error(error);
         });
+        function deleteQueue(val) {
+            delete obj[this.index];
+            return val;
+        }
+        function success(val) {
+            results[i] = val;
+            if (--count <= 0)
+                d.call(results);
+        }
+        function error(ex) {
+            cancel();
+            d.fail(ex);
+        }
         function cancel() {
             for (let a in obj)
                 obj[a].cancel();
         }
-        return d;
-    };
-    D.iter = function _iter(iter, callback) {
-        var d = new Deferred(function () {
-            if (iter.close) iter.close();
-            return d1.cancel();
-        });
-
-        if (iter instanceof Function) iter = iter();
-        else if (iter instanceof Array) iter = Iterator(iter);
-        //else if (iter instanceof Iterator) 
-
-        var param = {iter: iter};
-        var d1 = Deferred.next(function loop (value) {
-            try {
-                param.result = value;
-                param.value = iter.next();
-
-                return d1 = Deferred.next(function () {
-                        let r = callback.call(this, param)
-                        return r;
-                    })
-                    //.wait(1000)
-                    .next(loop)
-                    .error(function (ex) {
-                        Cu.reportError(ex);
-                        d.fail(ex);
-                    });
-            } catch (ex if ex instanceof StopIteration) {
-                    d.call(value);
-            } catch (ex) {
-                    d.fail(ex);
-            }
-        });
         return d;
     };
     D.iter = function _iter(iter, callback, extra) {
@@ -414,7 +395,7 @@ lazyGetter(this, "Deferred", function () //{{{
 
         if (iter instanceof Function) iter = iter();
         else if (iter instanceof Array) iter = Iterator(iter);
-        //else if (iter instanceof Iterator) 
+        //else if (iter instanceof Iterator)
 
         function ml() {log("loop", step);}
         function _error(ex) { d.fail(ex); }
@@ -645,6 +626,7 @@ let PiyoUI = Class("PiyoUI", //{{{
         });
     },
     get doc() this.iframe.contentDocument,
+    get win() this.iframe.contentWindow,
     get box() this.iframe.parentNode,
     get filter() this.editor.value,
     get index() this._index,
@@ -904,7 +886,7 @@ let PiyoUI = Class("PiyoUI", //{{{
             }
             index += this.index;
         }
-        else if (index < 0) index = this.items.length - 1;
+        else if (index < 0) index = this.items.length + index;
         else index = index - 1;
         index = Math.max(0, Math.min(this.items.length - 1, index));
 
@@ -946,7 +928,7 @@ let PiyoUI = Class("PiyoUI", //{{{
             this.fill(index, index - line, index + line, false);
         } else {
             if (this._begin == index)
-                self.doc.documentElement.scrollTop = 0; 
+                self.doc.documentElement.scrollTop = 0;
             else
                 util.nodeScrollIntoView(this.items[index].dom, -1, -1);
             this.index = index;
@@ -991,17 +973,24 @@ let PiyoUI = Class("PiyoUI", //{{{
         if (this.index >= 0)
             this.selectedItem.unselect();
 
+        if (index < 0) index = 0;
+        else {
+            let len = this.items.length - 1;
+            if (index > len)
+                index = len;
+        }
+
         this._fill(begin, end);
 
         this.index  = index;
 
         this.selectedItem.select();
-        this.updateStatus();
 
         if (begin == index)
             this.doc.documentElement.scrollTop = 0;
         else
             this.items[index].dom.scrollIntoView(!!isTop);
+        this.updateStatus();
     },
     fill2: function (index) {
         let doc = this.doc;
@@ -1056,7 +1045,6 @@ let PiyoUI = Class("PiyoUI", //{{{
         if (this._begin == -1) {
         } else if (count > 0) {
             let doc = this.doc;
-            let fontSize = parseFloat(this.doc.defaultView.getComputedStyle(this.doc.body, null).fontSize);
             let line = this.line;
 
             let bottom = this.doc.defaultView.innerHeight;
@@ -1097,15 +1085,19 @@ let PiyoUI = Class("PiyoUI", //{{{
         if (!dom) return;
         else dom = dom.dom;
 
-        if (0 < aVPercent && aVPercent < 100) {
-            let line = this.line;
-            let line2 = this.line / 2;
-            let index = this.index;
-            let offset = Math.floor(aVPercent * line2 / 100);
-            if ((this._begin > 0 && (this._begin > (index - offset)))
-                || ((this._end < this.items.length) && (this._end < (index + line2 - offset)))) {
+        if (0 <= aVPercent && aVPercent <= 100) {
+            let rect = dom.getBoundingClientRect();
+            let win = this.doc.defaultView;
+            let offset = win.innerHeight * aVPercent / 100;
+            let move = rect.top - offset;// + rect.height/2
 
-                //alert(1);
+            // scroll で カバーできる範囲を越えている場合は、_fill
+            if ((move > 0 && ((win.scrollMaxY - win.scrollY) < move) && (this._end < (this.items.length)))
+                || (move < 0 && (win.scrollY + move < 0) && (this._begin > 0))
+            ) {
+                log("scrollIntoView", win.scrollY, win.scrollMaxY, offset, move);
+                let index = this.index;
+                let line = this.line;
                 ui._fill(index - line, index + line);
                 liberator.threadYield(true);
             }
@@ -1223,7 +1215,6 @@ let PiyoUI = Class("PiyoUI", //{{{
     },
     echo: function () {
         // required check modes.PIYO?
-        
         modes._prevMode = modes.PIYO;
         liberator.echo.apply(liberator, arguments);
     },
@@ -1303,114 +1294,31 @@ let PiyoUI = Class("PiyoUI", //{{{
         this._deferred.cancel();
         this._deferred = Deferred.wait(300)
         .next(function () {
-            //let doc = self.doc;
-            //let main = doc.getElementById("main");
-            //let r = doc.createRange();
-            //r.selectNodeContents(main);
-            //r.deleteContents()
-            self._filter = ui.editor.value;
-        })
-        .next(function () self.dfShow())
-        .error(function (ex) alert(ex));
-    },
-    dfShow: function () //{{{
-    {
-        const self = this;
-        let items = this.items = [];
-        let fontSize = parseFloat(this.doc.defaultView.getComputedStyle(this.doc.body, null).fontSize);
-        let line = Math.floor((window.innerHeight/fontSize) * 0.7);
-        const nav = self.doc.defaultView
-                .QueryInterface(Components.interfaces.nsIInterfaceRequestor)
-                .getInterface(Components.interfaces.nsIWebNavigation);
-        return Deferred
-        .next(function () {
-            self.index = -1;
             let doc = self.doc;
             let main = doc.getElementById("main");
             let r = doc.createRange();
             r.selectNodeContents(main);
             r.deleteContents()
-        }).iter(this._contexts, function (param) {
-            let [,context] = param.value;
-            let doc = self.doc;
-            let main = doc.getElementById("main");
-
-            let root = util.xmlToDom(context.createRoot(), doc);
-            let (title = root.querySelector(".title")) {
-                if (title) title.textContent = "[df] " + (context.title || "no name");
-            }
-
-            main.appendChild(root);
-            let (node = root.querySelector(".content")) {
-                if (node) root = node;
-                else root.classList.add("content");
-            }
-            //
-            // items offset
-            context.offset = items.length;
-            let node = doc.createDocumentFragment();
-
-            function updateItem() {
-                root.appendChild(node);
-                node = doc.createDocumentFragment();
-
-                for (let i = 0, j = list.length; i < j; ++i)
-                    items[items.length] = list[i];
-                list = [];
-
-                if (self.index === -1) {
-                    self.showBox();
-                }
-
-                self._resizer.tell();
-                self._updateStatus.tell();
-            }
-
-            context.filter = self._filter;
-            let iter = context.generator(self);
-            let highlighter = context.getHighlighter(self._filter);
-            let isOdd = 1;
-            let list = [];
-            let isFirst = true;
-
-            return Deferred.next(function(){})
-            .iter(iter, function (param) {
-                let item = param.value;
-                for (let item = param.value, time = Date.now() + 100; Date.now() < time; item = param.iter.next()) {
-                //let (item = param.value) {
-
-                    context.items.push(item);
-                    let hi = highlighter(item);
-                    if (hi) {
-                        let view = util.xmlToDom(context.createView(item, hi), doc);
-                        view.classList.add("item");
-                        if (isOdd) {
-                            view.classList.add("odd");
-                        }
-                        isOdd ^= 1;
-                        node.appendChild(view);
-                        list[list.length] = PiyoItem(item, view, context);
-                    }
-                }
-                log(list.length);
-
-                if (isFirst) {
-                //if (node.childNodes.length > 500) {
-                    updateItem();
-                    isFirst = false;
-                }
-            })
-            .next(updateItem);
+            self._filter = ui.editor.value;
         })
-        .next(function (e) {
-            log("end");
-        })
-        .error(function (ex) {
-            liberator.echoerr(ex);
-            Cu.reportError(ex);
-        })
-        ;
-    }, //}}}
+        .next(function () self.dfShow())
+        .error(function (ex) alert(ex));
+    },
+    updateItem: function updateItem() {
+        let length = this.items.length;
+        if (this.noupdate || length == 0) return;
+        else if (this.index == -1)
+            this.select(0);
+        // 動作確認方法検討中
+        else if (this.win.scrollMaxY == 0 && this._end < length) {
+        //else if (this._end < length && ((this._end - this.index) < this.line)) {
+            log("call");
+            let win = this.win;
+            let top = win.scrollY;
+            this._fill(this._begin, this.index + this.line);
+            win.scrollY = top;
+        }
+    },
     dfShow: function () //{{{
     {
         const self = this;
@@ -1425,50 +1333,36 @@ let PiyoUI = Class("PiyoUI", //{{{
         .next(function () {
             self.index = -1;
             self._begin = self._end = -1;
-            // クリアするとちらつく
+            // クリアするとちらつく?
             let r = doc.createRange();
             r.selectNodeContents(main);
             r.deleteContents()
+
+            self.updateStatus();
         }).iter(this._contexts, function (param) {
             let [,context] = param.value;
             let doc = self.doc;
             let main = doc.getElementById("main");
 
-            let root = util.xmlToDom(context.createRoot(), doc);
-            let (title = root.querySelector(".title")) {
-                if (title) title.textContent = "[df] " + (context.title || "no name");
-            }
-
-            main.appendChild(root);
-            let (node = root.querySelector(".content")) {
-                if (node) root = node;
-                else root.classList.add("content");
-            }
-            //
             // items offset
             context.offset = items.length;
-            let node = doc.createDocumentFragment();
-
-            function updateItem() {
-                self._resizer.tell();
-                self._updateStatus.tell();
-            }
 
             context.filter = self._filter;
             let iter = context.generator(self);
             let highlighter = context.getHighlighter(self._filter);
-            let isFirst = true;
             let list = items;
+            const duration = 100;
 
             function updateItem() {
-                if (!self.noupdate && self.index == -1 && self.items.length > 0)
-                    self.select(0);
+                self.updateItem();
+                self.updateStatus();
+                //if (fx3) return Deferred.wait(100);
             }
 
             return Deferred.next(function(){})
             .iter(iter, function (param) {
                 let item = param.value;
-                for (let item = param.value, time = Date.now() + 100; Date.now() < time; item = param.iter.next()) {
+                for (let item = param.value, time = Date.now() + duration; Date.now() < time; item = param.iter.next()) {
                     context.items.push(item);
                     let hi = highlighter(item);
                     if (hi) {
@@ -1476,14 +1370,17 @@ let PiyoUI = Class("PiyoUI", //{{{
                         list[hi.index] = PiyoItem2(item, hi, context);
                     }
                 }
-                log(list.length);
-
-                if (isFirst && list.length > 0) {
-                    updateItem();
-                    isFirst = false;
-                } else self.updateStatus();
+                updateItem();
             })
             .next(updateItem);
+        })
+        .next(function () {
+            log("test", Date.now() - time);
+            if (items.length == 0) {
+                main.textContent = "empty";
+                self.showBox();
+                self._resizer.tell();
+            }
         })
         .next(function (e) {
             log("end", Date.now() - time);
@@ -1661,7 +1558,7 @@ let PiyoSource = Class("PiyoSource", //{{{
 
             for (let obj in result) {
                 yield obj;
-                list.push(obj);
+                list[list.length] = obj; //list.push(obj);
             }
             // 全て列挙したときのみ
             this._cache[name] = list;
@@ -1751,7 +1648,7 @@ let PiyoItem2 = Class("PiyoItem", PiyoItem, //{{{
     get dom() {
         if (this._dom) return this._dom;
 
-        let dom =  util.xmlToDom(this.source.createView(this.item, this.highlight), this.source._ui.doc); 
+        let dom =  util.xmlToDom(this.source.createView(this.item, this.highlight), this.source._ui.doc);
         dom.classList.add("item");
         if (this.highlight.index & 1) dom.classList.add("odd");
         this._dom = dom;
