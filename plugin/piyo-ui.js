@@ -2338,6 +2338,7 @@ lazyGetter(util, "desc", function () Object.getOwnPropertyDescriptor.bind(Object
 }
 
 commands.addUserCommand(["pi[yo]"], "piyo command", function (args) {
+    commandline.close();
     ui.openAsync(Array.join(args, " "), args["-input"] || "");
 }, {
     options: [

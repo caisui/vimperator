@@ -62,6 +62,7 @@ function inspect(object) {
 }
 
 commands.addUserCommand(["pecho"], "inspect result object", function (args) {
+    commandline.close();
     let result = liberator.eval(args[0]);
     ui.input("", inspect(result));
 }, {

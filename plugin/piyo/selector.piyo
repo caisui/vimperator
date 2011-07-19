@@ -4,7 +4,7 @@ const focus = Cc["@mozilla.org/focus-manager;1"]
           .getService(Ci.nsIFocusManager);
 commands.addUserCommand(["pse[lector]"], "", function (args) {
     let selector = args[0];
-    log(selector, content.document.querySelectorAll(selector).length);
+    commandline.close();
     ui.list(args["-input"], {
         keys: ["text"],
         title: <>selector[{selector}]</>.toString(),
