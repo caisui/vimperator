@@ -15,7 +15,7 @@ commands.addUserCommand(["pse[lector]"], "", function (args) {
 
             let stack = [content.window];
             while (win = stack.pop()) {
-                stack.push.apply(stack, win.frames);
+                stack.push.apply(stack, Array.slice(win.frames));
                 for ([i, n] in Iterator(win.document.querySelectorAll(selector))) {
                     yield ({
                         num: i + 1,
@@ -66,6 +66,11 @@ commands.addUserCommand(["pse[lector]"], "", function (args) {
                 function (param) {
                     try {
                     let node = param.value;
+                    const str = "[href]";
+                    if (!node.mozMatchesSelector(str)) {
+                        node = node.querySelector(str);
+                        if (!node) return;
+                    }
                     menu.setTarget(node);
                     menu.openLinkInTab();
                     liberator.threadYield(true);
