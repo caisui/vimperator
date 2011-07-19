@@ -1,7 +1,7 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 //"use strict";
 var INFO = //{{{
-<plugin name="piyo-ui" version="0.2.1"
+<plugin name="piyo-ui" version="0.2.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/piyo-ui.js"
         summary="piyo ui"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -28,7 +28,6 @@ ToDo:
 - source を他 plugin から 拡張する手段
 - 単一選択用/複数選択用 map/command を 認識できる手段
 - 固有 map 一覧の確認方法
-- util.http.post の 実装
 - item 生成用に 略記関数(wiki記法とか、zen codingのような)
 - modes.reset への 対応策
 - vim の quickfix のような表示方法
@@ -177,7 +176,10 @@ lazyGetter(this, "Deferred", function () //{{{
         next:  function (callback) this._post({ok:callback}),
         error: function (callback) this._post({ng:callback}),
         both:  function (callback) this._post({ok:callback, ng:callback}),
-        local: function (callback) {callback(); return this;},
+        local: function (callback) {callback.call(this); return this;},
+        scope: function (callback) {
+            return this.next(function (val) { return callback.call(this, val);});
+        },
 
         call: function (value) {
             //log("** fire", this.uuid);
@@ -267,7 +269,7 @@ lazyGetter(this, "Deferred", function () //{{{
         //pause:  function () this._nest ? this._nest.pause()  : this._breaker = Deferred.new(),
         //resume: function () this._nest ? this._nest.resume() : this._fire(this._result),
 
-        Deferred: function Deferred(funcname) {
+        Deferred: function _Deferred(funcname) {
             var args = Array.slice(arguments, 1);
             return this.next(function (val) Deferred[funcname].apply(Deferred, args));
         },
@@ -326,16 +328,23 @@ lazyGetter(this, "Deferred", function () //{{{
         function callback(e) {cancel(); d.fire(e); }
         return d;
     };
-    D.httpGet = function (url, query) {
-        var d = new Deferred();
+    D.xhr = function _xhr(extra) {
+        var d = new Deferred(cancel);
         var xhr = new XMLHttpRequest();
-        function cancel() {
-            xhr.onreadystatechange = xhr.onerror = "";
-            xhr.abort();
-        }
+        var time = Date.now();
         function callback() {
-            cancel();
-            d.call(xhr);
+            //if (xhr.readyState == XMLHttpRequest.DONE) {
+            if (xhr.readyState == 4) {
+                xhr.onreadystatechange = xhr.onerror = null;
+                log("recv data:", Date.now() - time, "ms");
+                d.call(xhr);
+            }
+        }
+        function cancel() {
+            xhr.onreadystatechange = xhr.onerror = null;
+            xhr.abort();
+            log("xhr:cancel");
+            alert("cancel!");
         }
         function error() {
             cancel();
@@ -344,9 +353,30 @@ lazyGetter(this, "Deferred", function () //{{{
         xhr.onreadystatechange = callback;
         xhr.onerror = error;
 
-        xhr.send(url);
-
+        log(extra.type || "GET", extra.url);
+        xhr.open(extra.type || "GET", extra.url, true, extra.user || null, extra.password || null);
+        xhr.send(extra.data || null);
         return d;
+    };
+
+    function objectToQuery(object) {
+        let list = [];
+        for (let a in object) {
+            list.push(a + "=" + encodeURIComponent(object[a]));
+        }
+        return list.join("&");
+    }
+    D.httpPost = function (url, data) {
+        return Deferred.xhr({
+            type: "POST",
+            url: url,
+            data: data ? objectToQuery(data) : null
+        });
+    };
+    D.httpGet = function (url, query) {
+        if (query)
+            url += (~url.indexOf("?") ? "?" : "&") + objectToQuery(query);
+        return Deferred.xhr({ type: "GET", url: url, });
     };
     D.new = function (canceller) {
         var d = new Deferred(canceller);
@@ -392,9 +422,13 @@ lazyGetter(this, "Deferred", function () //{{{
             extra && extra.onCancel && extra.onCancel();
             return d1.cancel();
         });
+        function _iterator(array) {
+            for (let i = 0, j = array.length; i < j; i++)
+                yield array[i];
+        }
 
         if (iter instanceof Function) iter = iter();
-        else if (iter instanceof Array) iter = Iterator(iter);
+        else if ("length" in iter) iter = _iterator(iter);
         //else if (iter instanceof Iterator)
 
         function ml() {log("loop", step);}
@@ -502,6 +536,20 @@ lazyGetter(this, "Deferred", function () //{{{
         _next();
         return d;
     };
+
+    // 割込処理
+    D.interrupt = function _interrupt(deferred, value) {
+        var d1 = new Deferred(function () d2.cancel());
+        var d2 = Deferred.next(function () {
+            // cancel の接続
+            this._nest = deferred;
+            deferred
+                .next(function (v) d1.call(v))
+                .error(function (ex) d1.fail(ex))
+                .call(value);
+        });
+        return d1;
+    };
     ["wait", "iter"].forEach(function (name) {
         D.prototype[name] = function () {
             let args = Array.slice(arguments);
@@ -602,27 +650,16 @@ let PiyoUI = Class("PiyoUI", //{{{
         function NOP() void 0
         this.__defineGetter__("NOP", function() NOP);
 
-        let self = this;
-        this._updateTimer = DelayTimer(this, 300, function () {
-            if (this.filter.trim() !== this._filter.trim()) {
-                //this.openAsync(this.original, this.editor.value, this.modifiers);
-                this._buildItems(this.editor.value, this._source, this.modifiers);
-            }
-        });
+        const self = this;
 
         this._resizer = new Timer(0, 300, function (force) {
-            let box = self.box;
-            //if (force || box.style.height !== "0pt") {
-                var docHeight = Math.min(self.doc.documentElement.scrollHeight, 0.7 * window.innerHeight);
-                var maxHeight = parseFloat(box.style.maxHeight) || 0;
-                if (maxHeight < docHeight) {
-                    //box.style.height = self.doc.height + "px";
-                    box.style.maxHeight = docHeight + "px";
-                }
-            //}
+            self.resize();
+            log("resize");
         });
-        this._updateStatus = new Timer(200, 500, function () {
-            self.updateStatus();
+        this._scroller = new Timer(0, 300, function () {
+            log("scroller");
+            self.resize();
+            self.scrollIntoView(-1, -1);
         });
     },
     get doc() this.iframe.contentDocument,
@@ -779,13 +816,18 @@ let PiyoUI = Class("PiyoUI", //{{{
                 }
                 this.box.collapsed = false;
             }
-            if (this.index === -1 && this.items.length > 0) {
-                this.index = 0;
-                this.selectedItem.select();
-                window.setTimeout(function ()
-                    util.nodeScrollIntoView(self.iframe.contentDocument.body), 0);
-            }
         }, 0);
+    },
+    resize: function () {
+        let box = this.box;
+        //if (force || box.style.height !== "0pt") {
+            var docHeight = Math.min(this.doc.documentElement.scrollHeight, 0.7 * window.innerHeight);
+            var maxHeight = parseFloat(box.style.maxHeight) || 0;
+            if (maxHeight < docHeight) {
+                //box.style.height = self.doc.height + "px";
+                box.style.maxHeight = docHeight + "px";
+            }
+        //}
     },
     initUI: function () {
         // init ui
@@ -803,28 +845,36 @@ let PiyoUI = Class("PiyoUI", //{{{
         doc.body.appendChild(style);
         doc.body.appendChild(main);
         doc.body.appendChild(bottom);
+
+        const self = this;
+        // image の 読込による高さの変更
+        doc.addEventListener("load", function (e) {
+            let item = self.selectedItem;
+            if (!item) return;
+            let elem = item.dom;
+            if (elem.compareDocumentPosition(e.target) & Node.DOCUMENT_POSITION_PRECEDING)
+                self._scroller.tell();
+            else self._resizer.tell();
+        }, true);
     },
     hide: function () {
         //window.setTimeout(function () ui.box.collapsed = true, 0);
+        this.box.collapsed = true
+        this.box.style.maxHeight = 0;
     },
     quit: function () {
-        if (this.build) {
-            this.abort = {
-                type: "quit",
-            };
-            return;
-        }
+        if (ui._deferred) ui._deferred.cancel();
         this._resizer.reset();
-        this._updateTimer.reset();
         this.modifiers = {};
         this._cache = {};
         this.hide();
-        window.setTimeout(function() {
-            ui.box.collapsed = true
-            ui.box.style.maxHeight = 0;
+        const self = this;
+        //window.setTimeout(function() {
+            //self.box.collapsed = true
+            //self.box.style.maxHeight = 0;
             //liberator.threadYield(true);
             modes.reset();
-        }, 0);
+        //}, 0);
     },
     createContext: function (source, offset, proto) {
         if (typeof(source) === "string")
@@ -880,7 +930,8 @@ let PiyoUI = Class("PiyoUI", //{{{
             if (index < 0 && rect.top < 0) {
                 this.doc.defaultView.scrollByLines(-1);
                 return;
-            } else if (index > 0 && this.doc.defaultView.innerHeight < rect.bottom) {
+            } else if (index > 0 && this.doc.defaultView.innerHeight < Math.floor(rect.bottom)) {
+                log(this.win.innerHeight, rect.bottom);
                 this.doc.defaultView.scrollByLines(1);
                 return;
             }
@@ -903,36 +954,24 @@ let PiyoUI = Class("PiyoUI", //{{{
             modes.show();
     },
     select: function (index) {
-        var doc = this.doc;
-        let main = doc.getElementById("main");
-        let context = this._contexts[0];
-        let root = util.xmlToDom(context.createRoot(), doc);
-        let (title = root.querySelector(".title")) {
-            if (title) title.textContent = "[df] " + (context.title || "no name");
-        }
-        let node = root.querySelector(".content") || root;
-        node.classList.add("content");
-
         //this.lock();
 
-        let fontSize = parseFloat(this.doc.defaultView.getComputedStyle(this.doc.body, null).fontSize);
-        let line = Math.floor((window.innerHeight/fontSize) * 0.7);
+        let line = this.line;
         if (this.index >= 0)
             this.items[this.index].unselect();
 
         const self = this;
 
+        // top
         if ((index < this._begin) || this._begin == -1) {
             this.fill(index, index - line, index + line, true);
-        } else if (this._end <= index) {
+        } // bottom
+        else if (this._end <= index) {
             this.fill(index, index - line, index + line, false);
         } else {
-            if (this._begin == index)
-                self.doc.documentElement.scrollTop = 0;
-            else
-                util.nodeScrollIntoView(this.items[index].dom, -1, -1);
             this.index = index;
             this.items[index].select();
+            this.scrollIntoView(-1, -1);
         }
 
         this.showBox();
@@ -955,7 +994,7 @@ let PiyoUI = Class("PiyoUI", //{{{
         for (let i = begin; i < end; ++i) {
             let item = this.items[i];
             if (src != (src = item.source)) {
-                var root = util.xmlToDom(this.items[this._begin].source.createRoot(), doc);
+                var root = util.xmlToDom(item.source.createRoot(), doc);
                 var node = root.querySelector(".content") || root;
                 node.classList.add("content");
                 frag.appendChild(root);
@@ -1030,7 +1069,6 @@ let PiyoUI = Class("PiyoUI", //{{{
             let item = this.items[i];
             node.appendChild(item.dom);
         }
-        alert([this.index, line, aI,aJ, bI, bJ]);
         if (bI < bJ) {
             bRange.selectNode(this.items[bJ - 1].dom);
             bRange.setStart(this.items[bI].dom, 0);
@@ -1040,6 +1078,18 @@ let PiyoUI = Class("PiyoUI", //{{{
         aRange.insertNode(root);
         this._begin = begin;
         this._end = end;
+    },
+    scrollByLines: function (dir) {
+        let index = dir + this.index;
+        if (this._begin <= index && index < this._end) {
+            let item = this.selectedItem;
+            if (item) item.unselect();
+            this.index = index;
+            this.selectedItem.select();
+            this.scrollIntoView(-1, -1);
+            this.updateStatus();
+        } else
+            this.select(index);
     },
     scrollByPages: function (count) {
         if (this._begin == -1) {
@@ -1052,7 +1102,7 @@ let PiyoUI = Class("PiyoUI", //{{{
             for (i = this.index, end = this._end; i < end; ++i) {
                 let item = this.items[i];
                 let rect = item.dom.getBoundingClientRect();
-                if (bottom <= rect.bottom)
+                if (bottom < rect.bottom)
                     break;
             }
             if (this.index == i)
@@ -1099,7 +1149,7 @@ let PiyoUI = Class("PiyoUI", //{{{
                 let index = this.index;
                 let line = this.line;
                 ui._fill(index - line, index + line);
-                liberator.threadYield(true);
+                //liberator.threadYield(true);
             }
         }
 
@@ -1173,7 +1223,7 @@ let PiyoUI = Class("PiyoUI", //{{{
 
             script = {__proto__: piyo};
             log(<>load plugin: {file.leafName}</>);
-            liberator.loadScript(uri.spec, script);
+            liberator.loadScript(uri.spec + "?" + file.lastModifiedTime, script);
             this._scripts[name] = script;
         } catch (ex) {
             Cu.reportError(ex);
@@ -1203,15 +1253,6 @@ let PiyoUI = Class("PiyoUI", //{{{
                 return false;
             }).map(function (c) c._commands);
         return PiyoCommands.commonCommands(commands.length ? commands : [ui.selectedItem.source._commands]);
-    },
-    forceReset: function () {
-        this.build = false;
-        let f = this.abort;
-        try {
-            //this.abortAction();
-        } finally {
-            this.abort = null;
-        }
     },
     echo: function () {
         // required check modes.PIYO?
@@ -1310,13 +1351,15 @@ let PiyoUI = Class("PiyoUI", //{{{
         else if (this.index == -1)
             this.select(0);
         // 動作確認方法検討中
-        else if (this.win.scrollMaxY == 0 && this._end < length) {
+        //else if (this.win.scrollMaxY == 0 && this._end < length) {
+        else if (this._end < length && (this._end - this._begin) < this.line) {
         //else if (this._end < length && ((this._end - this.index) < this.line)) {
             log("call");
             let win = this.win;
             let top = win.scrollY;
             this._fill(this._begin, this.index + this.line);
             win.scrollY = top;
+            this._resizer.tell();
         }
     },
     dfShow: function () //{{{
@@ -1330,6 +1373,7 @@ let PiyoUI = Class("PiyoUI", //{{{
                 .getInterface(Components.interfaces.nsIWebNavigation);
         var time = Date.now();
         return Deferred
+        //.next(function () { userContext.jsd = new jsProfiler(); return userContext.jsd.deferredOn(); })
         .next(function () {
             self.index = -1;
             self._begin = self._end = -1;
@@ -1339,18 +1383,18 @@ let PiyoUI = Class("PiyoUI", //{{{
             r.deleteContents()
 
             self.updateStatus();
-        }).iter(this._contexts, function (param) {
-            let [,context] = param.value;
-            let doc = self.doc;
-            let main = doc.getElementById("main");
+        }).Deferred("array", this._contexts, function (param) {
+            const context = param.value;
+            const doc = self.doc;
+            const main = doc.getElementById("main");
 
             // items offset
             context.offset = items.length;
 
             context.filter = self._filter;
-            let iter = context.generator(self);
-            let highlighter = context.getHighlighter(self._filter);
-            let list = items;
+            const iter = context.generator(self);
+            const highlighter = context.getHighlighter(self._filter);
+            const list = items;
             const duration = 100;
 
             function updateItem() {
@@ -1359,8 +1403,7 @@ let PiyoUI = Class("PiyoUI", //{{{
                 //if (fx3) return Deferred.wait(100);
             }
 
-            return Deferred.next(function(){})
-            .iter(iter, function (param) {
+            function _createItem(param) {
                 let item = param.value;
                 for (let item = param.value, time = Date.now() + duration; Date.now() < time; item = param.iter.next()) {
                     context.items.push(item);
@@ -1371,11 +1414,14 @@ let PiyoUI = Class("PiyoUI", //{{{
                     }
                 }
                 updateItem();
-            })
-            .next(updateItem);
+            }
+
+            return iter instanceof Deferred
+                //xxx: PiyoSource.generator に callback を渡せば、Deferred.interrupt は不要
+                ? Deferred.interrupt(iter, function (val) Deferred.iter(val, _createItem).next(updateItem))
+                : Deferred.wait(0).iter(iter, _createItem).next(updateItem);
         })
         .next(function () {
-            log("test", Date.now() - time);
             if (items.length == 0) {
                 main.textContent = "empty";
                 self.showBox();
@@ -1385,6 +1431,7 @@ let PiyoUI = Class("PiyoUI", //{{{
         .next(function (e) {
             log("end", Date.now() - time);
         })
+        //.next(function () { userContext.jsd.off(); })
         .error(function (ex) {
             liberator.echoerr(ex);
             Cu.reportError(ex);
@@ -1435,7 +1482,8 @@ let PiyoSource = Class("PiyoSource", //{{{
     //<style><![CDATA[tr.item>td:last-child{width:100%;}]]></style>
     //</tbody></table>,
     //createRoot: function () <table style="border-collapse:collapse;"><style><![CDATA[tr>td:last-child{width:100%;}]]></style><caption class="title"/></table>,
-    createRoot: function () <table style="border-collapse:collapse;"><style><![CDATA[tr>td:last-child{width:100%;}]]></style></table>,
+    createRoot: function () <table style="border-collapse:collapse;"><style><![CDATA[tr.item>td:last-child{width:100%;}]]></style></table>,
+    //createRoot: function () <table style="border-collapse:collapse;width:100%;"></table>,
     getHighlighter: function () {
         let filter = this.filter.trim();
         let keys = this.keys;
@@ -1653,7 +1701,13 @@ let PiyoItem2 = Class("PiyoItem", PiyoItem, //{{{
         if (this.highlight.index & 1) dom.classList.add("odd");
         this._dom = dom;
         if (this._mark) this.mark = this._mark;
+
+        if (!fx3) Object.defineProperty(this, "dom", {value: dom});
         return dom;
+    },
+    clearDom: function () {
+        delete this._dom;
+        delete this.dom;
     },
 });//}}}
 
@@ -1686,15 +1740,34 @@ let PiyoCache = Class("PiyoCache", //{{{
     _get: function (name) this.cache[name],
     _set: function (name, value) this.cache[name] = value,
     clear: function (name) { delete this.cache[name]; },
-    clearAll: function () { this.cache = {};}
+    clearAll: function () { this.cache = {};},
+
+    deferred: function (name, callback) {
+        const self  = this;
+        const cache = this.cache;
+        var d1 = new Deferred(function () d2.cancel()), d2;
+        let val = this._get(name);
+        if (val != void 0) {
+            d2 = Deferred.next(function () d1.call(val));
+        } else {
+            d2 = Deferred.next(callback)
+            .next(function (val) {
+                self._set(name, val);
+                d1.call(val);
+            })
+            .error(function (ex) d1.fail(ex));
+        }
+        return d1;
+    }
 });//}}}
 
 let PiyoCacheTime = Class("PiyoCacheTime", PiyoCache, //{{{
 {
     init: function (time) {
         this.cache = {};
-        this.time = time || 0;
+        if (time) this.time = time;
     },
+    time: 30 * 60 * 1000,
     _get: function (name) {
         if (name in this.cache) {
             let obj = this.cache[name];
@@ -1791,8 +1864,7 @@ let onUnload = (function () // {{{
                 pointer-events: none;
             }
             #liberator-piyo-iframe.deactive {
-                opacity: .8;
-                background-color: black;
+                background-color: rgba(0, 0, 0, .8);
             }
         ]]>;
 
@@ -1848,8 +1920,6 @@ let onUnload = (function () // {{{
                         if (ui._deferred) {
                           ui.dfRefresFilter();
                         }
-                        else
-                            ui._updateTimer.tell();
                     }
                 } else {
                     this.__proto__.__proto__.onEvent.apply(this, arguments);
@@ -1905,18 +1975,16 @@ let onUnload = (function () // {{{
     };
 
     [ //mapping PIYO
-        [["j", "<Down>", "<Tab>"], "down", function (count) ui.scroll(Math.max(count,  1), true), {count: true}],
-        [["k", "<Up>", "<s-Tab>"], "up",   function (count) ui.scroll(-Math.max(count, 1), true), {count: true}],
+        [["j", "<Down>", "<Tab>"], "down", function (count) ui.scrollByLines(count  ||  1), {count: true}],
+        [["k", "<Up>", "<s-Tab>"], "up",   function (count) ui.scrollByLines(-count || -1), {count: true}],
         [["<C-f>", "<PageDown>"], "page scroll down", function (count) ui.scrollByPages(Math.max(count, 1)) ,{count:true}],
         [["<C-b>", "<PageUp>"],   "page scroll up",   function (count) ui.scrollByPages(-Math.max(count, 1)),{count:true}],
         [["<C-c>"], "stop search", function () {
             if (ui._deferred) ui._deferred.cancel();
-            else ui.build && (ui.abort = true);
         }],
         [["<Esc>"], "", function () {
             // <HEAD> で echoerr が 邪魔なので
             if (commandline._modeWidget && commandline.message) { commandline._echoLine(""); return; }
-            if (ui._deferred) ui._deferred.cancel();
             ui.quit();
         }],
         [["i", "a"], "piyo insert mode", function () {
@@ -1926,12 +1994,12 @@ let onUnload = (function () // {{{
         }],
         [["<Space>"], "mark mark", function () {
             ui.selectedItem.toggleMark();
-            ui.scroll(1, true);
+            ui.scrollByLines(1);
         }],
         [["<C-a>"], "select all", function () ui.selectAll()],
         [["<S-Space>"], "toggle mark previous", function () {
             ui.selectedItem.toggleMark();
-            ui.scroll(-1, true);
+            ui.scrollByLines(-1);
         }],
         [["gs"], "", function () {
             if ("docShell" in ui.iframe) {
@@ -1939,8 +2007,8 @@ let onUnload = (function () // {{{
             }
             //ui.lock(true);
         }],
-        [["gg"], "", function(count) ui.scroll(nullOr(count,  1)), {count: true}],
-        [["G"],  "", function(count) ui.scroll(nullOr(count, -1)), {count: true}],
+        [["gg"], "", function(count) ui.select(count ? count -1 : 0),                  {count: true}],
+        [["G"],  "", function(count) ui.select(count ? count -1 : ui.items.length -1), {count: true}],
         [["?"], "", function() ui.showHelp()],
         [[":"], "kill key_open_vimbar", function () {
             let filter = ui.filter;
@@ -2185,6 +2253,7 @@ let util = // {{{
                 xhr.mozBackgroundRequest = true;
 
                 xhr.onreadystatechange = function () {
+                    log("xhr-ready state:", xhr.readyState);
                     if (xhr.readyState == 4) {
                         wait = false;
                     }
@@ -2269,16 +2338,10 @@ lazyGetter(util, "desc", function () Object.getOwnPropertyDescriptor.bind(Object
 }
 
 commands.addUserCommand(["pi[yo]"], "piyo command", function (args) {
-    if (args["-force"]) {
-        ui.forceReset();
-        return;
-    }
-
     ui.openAsync(Array.join(args, " "), args["-input"] || "");
 }, {
     options: [
         [["-input", "-i"], commands.OPTION_STRING],
-        [["-force", "-f"], commands.OPTION_NOARG],
         //[["-k", "-keep"],  commands.OPTION_NOARG],
     ],
     completer: function (context, args) {
@@ -2300,5 +2363,125 @@ ui.iter = {
     vtabs: function () (t for ([,t] in Iterator(gBrowser.visibleTabs))),
     wins: function (type) iter(services.get("windowMediator").getEnumerator(type)),
 };
+
+function jsProfiler() {
+    this.jsd = services.get("debugger");
+}
+jsProfiler.prototype = {
+    on: function (callback) {
+        var jsd = this.jsd;
+        function action () {
+            jsd.flags |= jsd.COLLECT_PROFILE_DATA;
+            callback();
+        }
+        if (jsd.isOn)
+            action();
+        else if ("asyncOn" in jsd)
+            jsd.asyncOn(action);
+        else {
+            jsd.on();
+            action();
+        }
+    },
+    deferredOn: function () {
+        var d = new Deferred();
+        this.on(function () {d.call()});
+        return d;
+    },
+    off: function () {
+        let list = [];
+        var jsd = this.jsd;
+        var targetProp = [
+            "functionName",
+            "callCount",
+            "maxOwnExecutionTime",
+            "totalExecutionTime",
+            "totalOwnExecutionTime",
+            "functionSource",
+            "fileName",
+            "lineExtent",];
+        jsd.enumerateScripts({enumerateScript: function(script) {
+            if (script.callCount) {
+                try{
+                list.push(targetProp.reduce(function (obj, attr) {
+                    obj[attr] = script[attr];
+                    return obj;
+                }, {}));
+
+                }catch(ex){liberator.echoerr(ex);}
+
+                script.clearProfileData();
+            }
+        }});
+
+        list.sort(function (a, b) b.totalOwnExecutionTime - a.totalOwnExecutionTime);
+        jsd.flags &= ~jsd.COLLECT_PROFILE_DATA;
+        jsd.off();
+        this.result = list;
+    },
+    show: function () {
+        let list = this.result;
+        ui.input("", {
+            title: "profile",
+            keys: [],
+            createRoot: function ()
+<table style="border-collapse:collapse;">
+<thead>
+<tr style="background-color:black;color:white;">
+<td class="mark"/>
+<td>functionName</td>
+<td>callCount</td>
+<td>maxOwnExecutionTime</td>
+<td>totalOwnExecutionTime/i.callCount</td>
+<td>totalOwnExecutionTime</td>
+<td>totalExecutionTime</td>
+</tr>
+</thead>
+<tbody class="content"/>
+</table>,
+            createView: function (i, h)
+<tr>
+<td class="mark"/>
+<td>{i.functionName}</td>
+<td align="right">{i.callCount}</td>
+<td align="right">{i.maxOwnExecutionTime}</td>
+<td align="right">{i.totalOwnExecutionTime/i.callCount}</td>
+<td align="right">{i.totalOwnExecutionTime}</td>
+<td align="right">{i.totalExecutionTime}</td>
+</tr>,
+            generator: function () {
+                for (let i = 0, j = list.length; i < j; ++i) {
+                    yield list[i];
+                }
+            },
+            commands: function (commands) {
+                commands.add(["sort"], "sort column", function (args) {
+                    let attr = args[0];
+                    liberator.assert(targetProp.indexOf(attr));
+                    list.sort(function (a, b) a[attr] < b[attr]);
+                    ui.refresh();
+                }, {
+                    argCount: 1,
+                    completer: function (context) {
+                        context.completions = targetProp.map(function (n) [n, ""]);
+                    },
+                });
+            },
+            maps: [
+                PMap(["p"], "show function", function () {
+                    ui.echo(<pre>{ui.selectedItem.item.functionSource}</pre>);
+                }),
+            ],
+        });
+    },
+};
+jsProfiler.deferredOn = function (name) (function () {
+    var jsd = new jsProfiler();
+    userContext[name] = jsd;
+    return jsd.deferredOn();
+});
+jsProfiler.deferredOff = function (name) (function () {
+    userContext[name].off();
+});
 
 ui.loadPiyos();
