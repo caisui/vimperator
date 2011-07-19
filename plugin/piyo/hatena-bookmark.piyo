@@ -19,16 +19,22 @@ ui.registerSource("hatenta-bookmark", {
     keys:["user", "comment", "tags"],
     createView: function (i, h) <tr><td class="mark"/><td>{util.icon16(i.icon)}</td><td>{h.user}</td><td><span class="nw">{i.timestamp}</span><br/><span style="color:blue;font-size:.9em;">{h.tags}</span></td><td class="wwb">{h.comment}</td></tr>,
     generator: function () {
-        let uri = content.location.href;
-        //return this.iterCache(uri, function () {
-        for (let item in cache.iter(uri, function () {
-            //let xhr = util.http.get("http://b.hatena.ne.jp/entry/json/" + content.location.href);
-            let xhr = util.http.get("http://b.hatena.ne.jp/entry/jsonlite/?url=" + encodeURIComponent(content.location.href));
-            let text = xhr.responseText;
-            return text == "null" ?  [] : (HatenaBm(v) for ([, v] in Iterator(JSON.parse(text).bookmarks)));
-        })) {
-            if (item.comment || showNoComment) yield item;
-        }
+        const uri = content.location.href;
+        return new Deferred()
+        .next(function (callback) {
+            return cache.deferred(uri, function (val) {
+                return Deferred.httpGet("http://b.hatena.ne.jp/entry/jsonlite/?url=" + encodeURIComponent(uri))
+                    .next(function (xhr) {
+                        let text = xhr.responseText;
+
+                        return !(text && text != "null") ? []
+                            : [HatenaBm(v) for ([, v] in Iterator(JSON.parse(text).bookmarks))];
+                    });
+            })
+            .next(function (val) {
+                callback((i for([, i] in Iterator(val)) if (i.comment || showNoComment)));
+            });
+        });
     },
     maps: [
         PMap(["c"], "toggle no comment", function () {
