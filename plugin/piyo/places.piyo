@@ -10,23 +10,28 @@ mp.id, mp.url, mp.title, mp.favicon_id, mb.id
 from moz_places mp left outer join moz_bookmarks mb
 on mp.id = mb.fk and mb.title is not null
 ]]>,
-    createRoot: function () <div>
+//{{{
+    createRoot: function () <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
 <style><![CDATA[
-.item {display:relative;}
-.i {display: inline-block; width: 20px;}
-.t { display: inline-block; white-space: nowrap;width:1px;}
 .x {color: gray;}
 .y {color: orange;}
 .u {font-size: .8em; color:green;}
-.tag{position:absolute; right: 0; color: blue;}
-]]></style><div class="title"/></div>,
-    createView: function (item, hi)
-<div style="display:inline-block;width:100%;"><span class="mark"/>
-<span class="i">{piyo.util.icon16(item.icon)}</span>
-<span class="t">{hi.title || "no title"}<br/>
-<span class={item.bid === 0 ? "x" : "y"}>{"\u2605"}</span><span class="u">{hi.uri}</span></span>
-<span class="tag">[{item.tag}]</span>
-</div>,
+.tag{position:absolute; right: 0; color: blue; top: 0;}
+]]></style><thead>
+<th style="width:1.5ex;"/>
+<th style="width:32px;"/>
+<th style=""/>
+</thead><tbody class="content"/></table>,
+    createView: function (i, h) <tr>
+<td class="mark"/>
+<td>{piyo.util.icon16(i.icon)}</td>
+<td><div style="white-space:nowrap;text-overflow:ellipsis;overflow:hidden;position:relative;padding-right:4ex;">
+<span class="t">{h.title || <span class="x">no title</span>}<br/>
+<span class={i.bid === 0 ? "x" : "y"}>{"\u2605"}</span><span class="u">{h.uri}</span></span>
+<span class="tag">[{i.tag}]</span>
+</div>
+</td></tr>,
+//}}}
     generator: function (ui) { const self = this;return (obj for (obj in self.iterCache("place", function () {
         let conn = Cc["@mozilla.org/browser/nav-history-service;1"].getService(Ci.nsPIPlacesDatabase).DBConnection;
         let favicon = services.get("favicon");
@@ -34,6 +39,19 @@ on mp.id = mb.fk and mb.title is not null
         let count = 0;
         let tagging = PlacesUtils.tagging;
         try {
+            function getIcon() {
+                try {
+                    let uri = services.get("io").newURI(this.uri, null, null);
+                    return favicon.getFaviconImageForPage(uri).spec;
+                } catch (ex) {return "";}
+            }
+            function getTags() {
+                if (this.bid !== 0) {
+                    let uri = services.get("io").newURI(this.uri, null, null);
+                    let tags = tagging.getTagsForURI(uri, {});
+                    return tags.join(",");
+                } else { return ""; }
+            }
             while(stmt.executeStep()) {
                 let o = {};
                 o.itemId  = stmt.getInt64(0);
@@ -41,20 +59,8 @@ on mp.id = mb.fk and mb.title is not null
                 o.title   = stmt.getUTF8String(2);
                 o.favicon = stmt.getInt64(3);
                 o.bid     = stmt.getInt64(4);
-
-                try {
-                    let uri = services.get("io").newURI(o.uri, null, null);
-                    if (o.bid !== 0) {
-                      o.tags = tagging.getTagsForURI(uri, {});
-                      o.tag = o.tags.join(",");
-                    } else {
-                        o.tag = "";
-                    }
-
-                    o.icon = favicon.getFaviconImageForPage(uri).spec;
-                } catch(ex) {
-                    Application.console.log(o.uri);
-                }
+                lazyGetter(o, "icon", getIcon);
+                lazyGetter(o, "tag", getTags);
                 yield o;
             }
         } finally {
