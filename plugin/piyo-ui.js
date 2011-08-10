@@ -968,6 +968,8 @@ let PiyoUI = Class("PiyoUI", //{{{
                 node.classList.add("content");
                 frag.appendChild(root);
             }
+            let dom = item.dom;
+            dom.classList[i % 2 ? "add" : "remove"]("odd");
             node.appendChild(item.dom);
         }
         range.selectNodeContents(main);
@@ -1667,7 +1669,7 @@ let PiyoItem2 = Class("PiyoItem", PiyoItem, //{{{
 
         let dom =  util.xmlToDom(this.source.createView(this.item, this.highlight), this.source._ui.doc);
         dom.classList.add("item");
-        if (this.highlight.index & 1) dom.classList.add("odd");
+        //if (this.highlight.index & 1) dom.classList.add("odd");
         this._dom = dom;
         if (this._mark) this.mark = this._mark;
 
