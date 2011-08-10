@@ -2031,6 +2031,7 @@ let onUnload = (function () // {{{
         [["<Esc>", "<Return>"], "escape PIYO_I", function () {
             modes.set(modes.PIYO)
             commandline.hide();
+            if (fx3) liberator.focus.blur();
         }],
         [["<C-Return>"], "execute", function () { ui.execute(); }],
     ].forEach(function (m) {
