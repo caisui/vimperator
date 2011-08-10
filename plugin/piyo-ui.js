@@ -1986,6 +1986,7 @@ let onUnload = (function () // {{{
             let commands = ui.getCommands();
 
             commandline.input(fx3 ? ":" : "", function (args) {
+                ui.editor.value = filter;
                 ui.execute(args);
             }, {
                 completer: function (context) {
