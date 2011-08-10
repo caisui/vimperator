@@ -755,36 +755,9 @@ let PiyoUI = Class("PiyoUI", //{{{
                 font-weight: bold;
             }
         ]]> + (liberator.globalVariables.piyo_style || ""), //}}}
-    generatorAsync: function generatorAsync(source, input, modifiers) //{{{
-    {
-        const self = this;
-
-        this.original = source;
-
-        function _createSource(self, names) {
-            for (var [, name] in Iterator(names)) {
-                if (self._aliases[name]) {
-                    self._aliases[name].forEach(_createSource);
-                    for (var source in _createSource(self, self._aliases[name]))
-                        yield source;
-                } else {
-                    yield self._sources[name];
-                }
-            }
-        }
-        this.editor.value = input || "";
-        //this.setTimeout(function () _createItem.call(self, self, _createSource(self, source.split(" "))), 0);
-        this._buildItems(input, function () _createSource(self, source.split(" ")), modifiers);
-    },//}}}
     list: function (input, source) {
         log("list function is renamed input");
         this.input(input, source);
-    },
-    input: function (input, source) {
-        if (!input) input = "";
-        this.editor.value = input;
-        let creator = this.createSource("anonymouse", source);
-        this._buildItems(input, function () {yield creator;});
     },
     push: function (input, source, modifiers) {
         const self = this;
