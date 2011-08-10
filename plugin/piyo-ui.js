@@ -1364,6 +1364,7 @@ let PiyoUI = Class("PiyoUI", //{{{
             context.offset = items.length;
 
             context.filter = self._filter;
+            context.items = [];
             const iter = context.generator(self);
             const highlighter = context.getHighlighter(self._filter);
             const list = items;
