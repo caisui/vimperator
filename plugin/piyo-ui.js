@@ -259,7 +259,14 @@ lazyGetter(this, "Deferred", function () //{{{
         cancel: function () {
             log("cancel");
             this._nest ? this._nest.cancel() : this._canceller && this._canceller();
-            this._nest = this._parent = null;
+            this.init();
+        },
+        cNext: function () {
+            this.cancel();
+            var d = new Deferred.wait(0);
+            d._parent = this;
+            this._nest = d;
+            return this;
         },
 
         // 保留
