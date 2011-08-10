@@ -787,17 +787,15 @@ let PiyoUI = Class("PiyoUI", //{{{
         });
     },
     showBox: function () {
-        this.setTimeout(function () {
-            let iframe = this.iframe;
-            let box = this.box;
+        let iframe = this.iframe;
+        let box = this.box;
 
-            if (box.collapsed == true && !disabledFixed) {
-                let (r = commandline._commandlineWidget.parentNode.getBoundingClientRect()) {
-                    box.style.bottom = r.height + "px";
-                }
-                this.box.collapsed = false;
+        if (box.collapsed == true && !disabledFixed) {
+            let (r = commandline._commandlineWidget.parentNode.getBoundingClientRect()) {
+                box.style.bottom = r.height + "px";
             }
-        }, 0);
+            this.box.collapsed = false;
+        }
     },
     resize: function () {
         let box = this.box;
