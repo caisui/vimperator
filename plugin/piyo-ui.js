@@ -370,7 +370,8 @@ lazyGetter(this, "Deferred", function () //{{{
     function objectToQuery(object) {
         let list = [];
         for (let a in object) {
-            list.push(a + "=" + encodeURIComponent(object[a]));
+            //list.push(a + "=" + encodeURIComponent(object[a]));
+            list.push(a + "=" + object[a]);
         }
         return list.join("&");
     }
