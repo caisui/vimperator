@@ -277,6 +277,10 @@ lazyGetter(this, "Deferred", function () //{{{
             var args = Array.slice(arguments, 1);
             return this.next(function (val) Deferred[funcname].apply(Deferred, args));
         },
+        closure: function (obj, name) {
+            var args = Array.slice(arguments, 2);
+            return this.next(function _closureNext() obj[name].apply(obj, args));
+        }
     };
 
     D.PREPARE = {};
