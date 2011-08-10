@@ -918,9 +918,6 @@ let PiyoUI = Class("PiyoUI", //{{{
         item.unselect();
 
         this.select(index);
-        //item = this.items[this.index = index];
-        //item.select();
-        //util.nodeScrollIntoView(this.selectedItem, -1, -1);
 
         if (liberator.mode === modes.PIYO)
             modes.show();
