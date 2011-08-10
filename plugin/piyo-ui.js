@@ -384,7 +384,7 @@ lazyGetter(this, "Deferred", function () //{{{
     };
     D.httpGet = function (url, query) {
         if (query)
-            url += (~url.indexOf("?") ? "?" : "&") + objectToQuery(query);
+            url += (~url.indexOf("?") ? "&" : "?") + objectToQuery(query);
         return Deferred.xhr({ type: "GET", url: url, });
     };
     D.new = function (canceller) {
