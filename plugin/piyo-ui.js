@@ -762,28 +762,29 @@ let PiyoUI = Class("PiyoUI", //{{{
     push: function (input, source, modifiers) {
         const self = this;
         this._stack.push(
-        // xxx: 現仕様では、_source から 再作成する必要があるため、_contexts, items, index は 再利用できない
-        ["_filter", "_source", "_cache", "_contexts", "index", "items"
-            //"_contexts", "items", "index"
+        ["_filter", "_source", "_cache", "_contexts", "index", "items", "_begin", "_end"
         ].reduce(function (obj, name) {
             obj[name] = self[name];
             return obj;
-        }, {}));
+        }, {y: this.win.scrollY}));
         // cache の クリア
         this._cache = {};
         this.input(input, source, modifiers);
     },
     pop: function () {
         const self = this;
-        for (let[name, value] in Iterator(this._stack.pop()))
+        let data = this._stack.pop();
+        let y = data.y;
+        delete data.y;
+        for (let[name, value] in Iterator(data))
             this[name] = value;
         this.editor.value = this._filter;
-        let index = this.index;
-        this.refresh()
-        .next(function () {
-            self.select(index);
+        //this.refresh()
+        Deferred.next(function () {
+            //self.select(index);
+            self._fill(self._begin, self._end);
+            self.win.scrollTo(0, y);
         });
-        //this._buildItems(this._filter, this._source, null);
     },
     showBox: function () {
         this.setTimeout(function () {
