@@ -152,8 +152,6 @@ lazyGetter(this, "Deferred", function () //{{{
     var uuid = 0;
     function Deferred(func) {
         if (this instanceof Deferred) {
-            //xxx: debug
-            //log("-----------------create instance");
             this.init(func);
             this.uuid = ++uuid;
         } else
@@ -182,7 +180,6 @@ lazyGetter(this, "Deferred", function () //{{{
         },
 
         call: function (value) {
-            //log("** fire", this.uuid);
             this._msg = "ok";
             return this._fire(value)
         },
@@ -431,7 +428,6 @@ lazyGetter(this, "Deferred", function () //{{{
         else if ("length" in iter) iter = _iterator(iter);
         //else if (iter instanceof Iterator)
 
-        function ml() {log("loop", step);}
         function _error(ex) { d.fail(ex); }
         function _result(v) {
             param.result = v;
@@ -439,7 +435,6 @@ lazyGetter(this, "Deferred", function () //{{{
             else _next();
         }
         function _next() { d1 = Deferred
-            //.wait(1000).next(ml)
             .next(_loop)
             .next(_result)
             .error(_error);
@@ -858,7 +853,6 @@ let PiyoUI = Class("PiyoUI", //{{{
         }, true);
     },
     hide: function () {
-        //window.setTimeout(function () ui.box.collapsed = true, 0);
         this.box.collapsed = true
         this.box.style.maxHeight = 0;
     },
@@ -931,7 +925,6 @@ let PiyoUI = Class("PiyoUI", //{{{
                 this.doc.defaultView.scrollByLines(-1);
                 return;
             } else if (index > 0 && this.doc.defaultView.innerHeight < Math.floor(rect.bottom)) {
-                log(this.win.innerHeight, rect.bottom);
                 this.doc.defaultView.scrollByLines(1);
                 return;
             }
@@ -1185,8 +1178,9 @@ let PiyoUI = Class("PiyoUI", //{{{
         if (!modifiers.noquit)
             this.quit();
         else {
-            commandline._setCommand(filter);
-            ui._buildItems(filter, ui._source, ui.modifiers);
+            Deferred.next(function () modes.set(modes.PIYO));
+            //commandline._setCommand(filter);
+            //ui.refresh();
         }
     },
     showHelp: function () {
@@ -1445,7 +1439,6 @@ let PiyoUI = Class("PiyoUI", //{{{
         //wUitl.setDisplayPortForElement(0, 0, h, w, win.document.documentElement);
         //wUitl.setCSSViewport(0, 0);
         //this.iframe.docShell.isActive = !isLock;
-        //log("ac", this.iframe.docShell.isActive.toString());
         //if (!isLock)
         //    wUitl.redraw();
         let baseWindow =  this.iframe.docShell.QueryInterface(Ci.nsIBaseWindow);
@@ -1916,7 +1909,6 @@ let onUnload = (function () // {{{
                         event.preventDefault();
                         event.stopPropagation();
                     } else {
-                        log("df", ui._deferred);
                         if (ui._deferred) {
                           ui.dfRefresFilter();
                         }
