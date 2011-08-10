@@ -1120,7 +1120,7 @@ let PiyoUI = Class("PiyoUI", //{{{
                 let index = this.index;
                 let line = this.line;
                 ui._fill(index - line, index + line);
-                //liberator.threadYield(true);
+                liberator.threadYield(false);
             }
         }
 
