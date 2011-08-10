@@ -845,14 +845,9 @@ let PiyoUI = Class("PiyoUI", //{{{
         this._resizer.reset();
         this.modifiers = {};
         this._cache = {};
-        this.hide();
         const self = this;
-        //window.setTimeout(function() {
-            //self.box.collapsed = true
-            //self.box.style.maxHeight = 0;
-            //liberator.threadYield(true);
-            modes.reset();
-        //}, 0);
+        modes.reset();
+        this.hide();
     },
     createContext: function (source, offset, proto) {
         if (typeof(source) === "string")
