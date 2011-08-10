@@ -1089,7 +1089,7 @@ let PiyoUI = Class("PiyoUI", //{{{
             for (i = this.index; i >= 0; --i) {
                 let item = this.items[i];
                 let rect = item.dom.getBoundingClientRect();
-                if (rect.top <= 0)
+                if (rect.top < 0)
                     break;
             }
             if (this.index == i)
