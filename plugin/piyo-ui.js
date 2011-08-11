@@ -2084,7 +2084,7 @@ let util = // {{{
 
         r.selectNode(aNode);
         selection.addRange(r);
-        selection.QueryInterface(Ci.nsISelection2)
+        selection.QueryInterface(Ci.nsISelection2 || Ci.nsISelectionPrivate)
             .scrollIntoView(Ci.nsISelectionController.SELECTION_ANCHOR_REGION,
                     true, aVPercent, aHPercent);
 
