@@ -77,7 +77,7 @@ var INFO = //{{{
             }
         }//}}}
 
-        selection.QueryInterface(Ci.nsISelection2)
+        selection.QueryInterface(Ci.nsISelection2 || Ci.nsISelectionPrivate)
             .scrollIntoView(
                 isFocus
                 ? Ci.nsISelectionController.SELECTION_FOCUS_REGION
