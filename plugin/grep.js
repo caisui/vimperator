@@ -424,7 +424,7 @@
 
         let(op=options.get(option_scroll).vhPercent)
         selection
-            .QueryInterface(Ci.nsISelection2)
+            .QueryInterface(Ci.nsISelection2 || Ci.nsISelectionPrivate)
             .scrollIntoView(Ci.nsISelectionController.SELECTION_ANCHOR_REGION, true, op[0], op[1]);
         win.focus();// nsIFocusManager の focusedWindow を 更新
 
