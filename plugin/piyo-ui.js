@@ -1052,6 +1052,10 @@ let PiyoUI = Class("PiyoUI", //{{{
     },
     scrollByLines: function (dir) {
         let index = dir + this.index;
+
+        if (index < 0) index = 0;
+        else if (this.items.length <= index) index = this.items.length - 1;
+
         if (this._begin <= index && index < this._end) {
             let item = this.selectedItem;
             if (item) item.unselect();
