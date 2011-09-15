@@ -41,7 +41,7 @@ var INFO = //{{{
 </plugin>
 ; //}}}
 (function () {
-    const ios = services.services.io;
+    const ios = services.get("io");
     const NS_ERROR_SAVE_LINK_AS_TIMEOUT = 2153578528; //0x805D0020
     const NS_ERROR_USER_STOP_REQUEST    = 2152398850; //0x804B0002
     const NS_ERROR_DISCONNECT           = 2152398868; //0x804B0014
