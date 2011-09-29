@@ -1846,7 +1846,9 @@ let onUnload = (function () // {{{
 
         iframe.appendChild(style);
 
-        let onceIframe = domAddEventListener(iframe, "load", function () {
+        let onceIframe = domAddEventListener(iframe, "load", function (e) {
+            if (e.target !== this.contentDocument) return;
+
             iframe.contentDocument.documentElement.id = "piyohtml"
             iframe.contentDocument.body.id = "liberator-piyo-content";
             ui.initUI();
