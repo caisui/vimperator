@@ -31,6 +31,39 @@ function domEvent1(dom, name, callback, capture) {
     }, capture);
 }
 
+function tabopen(callback) {
+    var tab = gBrowser.addTab("chrome://browser/content/scratchpad.xul");
+    domEvent1(tab.linkedBrowser, "load", function () {
+        var win = this.contentWindow;
+        var Scratchpad = this.contentWindow.Scratchpad;
+        domEvent1(Scratchpad.editor._iframe, "load", function () {
+            var TextView = Scratchpad.editor._iframe.contentWindow.wrappedJSObject.orion.textview.TextView;
+
+            //xxx: document.write(xx) -> document.documentElement.innerHTML = xx;
+            var _init = TextView.prototype._init.toString()
+            .replace(<![CDATA[html.push("<!DOCTYPE html>");]]>.toString()  , '')
+            .replace(<![CDATA[html.push("<html>");]]>.toString()           , '')
+            .replace(<![CDATA[html.push("</html>");]]>.toString()          , '')
+            .replace(<![CDATA[document.open();]]>.toString()               , '')
+            .replace(<![CDATA[document.write(html.join(""));]]>.toString() , '')
+            .replace(<![CDATA[document.close();]]>.toString(),
+                <![CDATA[document.documentElement.innerHTML = html.join("");]]>.toString());
+
+            //xxx: compatMode 変更方法が分からないので
+            var src = TextView.prototype._getFrameHeight.toString().replace("documentElement", "body");
+
+            liberator.eval("this.prototype._init = " + _init + ";"
+                + "this.prototype._getFrameHeight = " + src + ";"
+                , TextView);
+            Scratchpad.editor._onLoad(function () {
+                Scratchpad.onEditorLoad.apply(Scratchpad, arguments);
+                callback(win);
+                gBrowser.selectedTab = tab;
+            });
+        }, true);
+    }, true);
+}
+
 function callScratchPad(args, callback) {
     function action(win) {
         var Scratchpad = win.Scratchpad;
@@ -63,6 +96,9 @@ function callScratchPad(args, callback) {
             action(win);
             return;
         }
+    } else if (args["-t"]) {
+        tabopen(action);
+        return;
     }
     win = Scratchpad.openScratchpad();
     domEvent1(win, "load", function () action(win), false);
@@ -76,6 +112,7 @@ commands.addUserCommand(["scratchpad"], "show Scratchpad", function (args) {
 }, {
     options: [
         [["-w", "--window"], commands.OPTION_NOARG],
+        [["-t", "--tab"],    commands.OPTION_NOARG],
         [["-c", "--chrome"], commands.OPTION_NOARG],
         [["-r", "--read"],   commands.OPTION_NOARG],
         [["-ft", "--filetype"], commands.OPTION_STRING, null, fileType],
