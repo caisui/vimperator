@@ -667,6 +667,7 @@ let PiyoUI = Class("PiyoUI", //{{{
             log("scroller");
             self.resize();
             self.scrollIntoView(-1, -1);
+            self.updateScrollbar();
         });
     },
     get doc() this.iframe.contentDocument,
@@ -754,6 +755,35 @@ let PiyoUI = Class("PiyoUI", //{{{
                 color: blue;
                 font-weight: bold;
             }
+
+            #piyo-scrollbox {
+                position: fixed;
+                right: 0;
+                top: 0;
+                width: 4px;
+                bottom: 0;
+                background-color: rgba(200,200,200, .5);
+                -moz-transition: .3s all;
+            }
+            #piyo-scrollbox:hover {
+                width: 1em;
+                background-color: rgba(200,200,200, .6);
+                opacity: 1;
+            }
+            #piyo-scrollbox div {
+                position: absolute;
+                left: 1px;
+                right: 1px;
+                -moz-border-radius: 2px;
+                -moz-transition: .5s;
+            }
+            #piyo-scrollbox .bar1 {
+                background-color: #999;
+            }
+            #piyo-scrollbox .bar2 {
+                background-color: #eee;
+            }
+
         ]]> + (liberator.globalVariables.piyo_style || ""), //}}}
     list: function (input, source) {
         log("list function is renamed input");
@@ -806,6 +836,7 @@ let PiyoUI = Class("PiyoUI", //{{{
                 //box.style.height = self.doc.height + "px";
                 box.style.maxHeight = docHeight + "px";
             }
+            this.updateScrollbar();
         //}
     },
     initUI: function () {
@@ -814,7 +845,16 @@ let PiyoUI = Class("PiyoUI", //{{{
         let style = doc.createElement("style");
         let main = doc.createElement("div");
         let bottom = doc.createElement("pre");
+        let scrollbox = doc.createElement("div");
+        let bar1 = doc.createElement("div");
+        let bar2 = doc.createElement("div");
         style.innerHTML = this.style;
+
+        scrollbox.id = "piyo-scrollbox";
+        bar1.classList.add("bar1");
+        bar2.classList.add("bar2");
+        scrollbox.appendChild(bar1);
+        bar1.appendChild(bar2);
 
         main.id = "main";
         bottom.id = "bottom";
@@ -822,6 +862,7 @@ let PiyoUI = Class("PiyoUI", //{{{
         doc.body.id = "liberator-piyo-body";
 
         doc.body.appendChild(style);
+        doc.body.appendChild(scrollbox);
         doc.body.appendChild(main);
         doc.body.appendChild(bottom);
 
@@ -835,6 +876,9 @@ let PiyoUI = Class("PiyoUI", //{{{
                 self._scroller.tell();
             else self._resizer.tell();
         }, true);
+        doc.addEventListener("scroll", function (e) {
+            self.updateScrollbar();
+        }, false);
     },
     hide: function () {
         this.box.collapsed = true
@@ -1237,6 +1281,23 @@ let PiyoUI = Class("PiyoUI", //{{{
     },
     echoAsync:    function () let(args = Array.splice(arguments, 0)) this.setTimeout(function () liberator.echo.apply(liberator, args), 0),
     echoerr: function () let(args = Array.splice(arguments, 0)) this.setTimeout(function () liberator.echoerr.apply(liberator, args), 0),
+    updateScrollbar: function () {
+        var box = this.doc.getElementById("piyo-scrollbox");
+        var bar1 = box.firstChild;
+        var bar2 = bar1.firstChild;
+        if (this.win.scrollMaxY === 0) {
+            box.style.display = "none"
+            return;
+        } else
+            box.style.display = ""
+        var count = this.items.length;
+
+        function $(v) v * 100
+        bar1.style.cssText = <>top:{$(this._begin / count)}%;bottom:{$(1 - this._end / count)}%;</>;
+
+        var height = this.win.scrollMaxY + this.win.innerHeight;
+        bar2.style.cssText = <>top:{$(this.win.scrollY / height)}%;bottom:{$(1 - (this.win.scrollY + this.win.innerHeight) / height)}%;</>;
+    },
     get rowStateE4X() <>[{this.index + 1}/{this.items.length}{this.build ? "*" : ""}]</>,
     updateStatus: function () {
         let item = this.selectedItem;
