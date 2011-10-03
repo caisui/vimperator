@@ -2095,6 +2095,8 @@ let onUnload = (function () // {{{
         //[["<C-s>n"], "normal filter", function () ui.matcherType = "n"],
         //[["<C-s>m"], "migemo filter", function () ui.matcherType = "m"],
         //[["<C-s>r"], "regex filter",  function () ui.matcherType = "r"],
+        [["<C-s>m"], "migemo filter", function () ui._contexts[0].matcher = util.migemoMatcher],
+        [["<C-s>r"], "regexp filter", function () ui._contexts[0].matcher = util.regexpMatcher2],
         [["<Esc>", "<Return>"], "escape PIYO_I", function () {
             modes.set(modes.PIYO)
             commandline.hide();
