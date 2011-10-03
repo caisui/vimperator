@@ -879,6 +879,9 @@ let PiyoUI = Class("PiyoUI", //{{{
         doc.addEventListener("scroll", function (e) {
             self.updateScrollbar();
         }, false);
+        this.box.addEventListener("transitionend", function (e) {
+            self.updateScrollbar();
+        }, false);
     },
     hide: function () {
         this.box.collapsed = true
