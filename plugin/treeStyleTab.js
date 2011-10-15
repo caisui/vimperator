@@ -188,10 +188,10 @@ var INFO = //{{{
         },
         removeTab: function () {
             let t = g.selectedTab;
-            if(!T.getNextSiblingTab(t) && !T.hasChildTabs(t)) {
-                let p = T.getPreviousSiblingTab(t)||T.getParentTab(t);
-                if(p) g.selectedTab = p;
-            }
+            let newTab = T.getNextVisibleTab(t);
+            if (!newTab && !T.hasChildTabs(t))
+                newTab = T.getPreviousVisibleTab(t) || T.getParentTab(t);
+            if(newTab) g.selectedTab = newTab;
             g.removeTab(t);
         },
         parentTab: function (aCount) {
