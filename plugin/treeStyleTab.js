@@ -324,7 +324,16 @@ var INFO = //{{{
             T.partTab(aTab);
         },
         moveDown: function (aCount) {
-            repeat(Math.max(aCount, 1), function () T.demoteCurrentTab());
+            let tab1 = gBrowser.selectedTab;
+            if (T.getParentTab(tab1)) {
+                repeat(Math.max(aCount, 1), function () T.demoteCurrentTab());
+            } else {
+                let tab2 = U1.getPreviousSiblingVisibleTab(tab1);
+                if (!tab2) return;
+                T.partTab(tab1);
+                T.attachTabTo(tab1, tab2);
+                if (aCount > 1) this.moveDown(aCount - 1);
+            }
         },
         tabOpenChild: function (aCount) {
             T.readyToOpenChildTab(U1.getParentTab(g.selectedTab, aCount), false);
