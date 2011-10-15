@@ -113,6 +113,14 @@ var INFO = //{{{
             while(aCount-->1) it.next();
             return it.next();
         },
+        getNextSiblingVisibleTab: function (aTab) {
+            while ((aTab = T.getNextSiblingTab(aTab)) && aTab.hidden);
+            return aTab;
+        },
+        getPreviousSiblingVisibleTab: function (aTab) {
+            while ((aTab = T.getPreviousSiblingTab(aTab)) && aTab.hidden);
+            return aTab;
+        },
         getParentTab: function (aTab, aCount) {
             let tab;
             for(let i = 0; i<aCount; ++i) {
@@ -188,10 +196,12 @@ var INFO = //{{{
         },
         removeTab: function () {
             let t = g.selectedTab;
-            let newTab = T.getNextVisibleTab(t);
-            if (!newTab && !T.hasChildTabs(t))
-                newTab = T.getPreviousVisibleTab(t) || T.getParentTab(t);
-            if(newTab) g.selectedTab = newTab;
+            if (!T.hasChildTabs(t)) {
+                let newTab = U1.getNextSiblingVisibleTab(t);
+                if (!newTab)
+                    newTab = U1.getPreviousSiblingVisibleTab(t) || T.getParentTab(t);
+                g.selectedTab = newTab;
+            }
             g.removeTab(t);
         },
         parentTab: function (aCount) {
