@@ -10,6 +10,11 @@ var INFO = //{{{
     <item>
         <description>
             let's coffee
+
+            <note>
+                <link xmlns={XHTML} target="_blank" href="https://github.com/jashkenas/coffee-script">jashkenas/coffee-script - GitHub</link>
+                の extra/coffee-script.js が必要です。
+            </note>
         </description>
     </item>
 </plugin>;
