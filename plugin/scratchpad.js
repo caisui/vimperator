@@ -1,6 +1,6 @@
 // vim: set ft=javascript fdm=marker:
 var INFO = //{{{
-<plugin name="scratchpad" version="0.0.1"
+<plugin name="scratchpad" version="0.0.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/scratchpad.js"
         summary="Scratchpad Command"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -37,6 +37,11 @@ function tabopen(callback) {
         var win = this.contentWindow;
         var Scratchpad = this.contentWindow.Scratchpad;
         domEvent1(Scratchpad.editor._iframe, "load", function () {
+            if (Scratchpad.editor._view) {
+                callback(win);
+                gBrowser.selectedTab = tab;
+                return;
+            }
             var TextView = Scratchpad.editor._iframe.contentWindow.wrappedJSObject.orion.textview.TextView;
 
             //xxx: document.write(xx) -> document.documentElement.innerHTML = xx;
