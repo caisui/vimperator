@@ -569,6 +569,7 @@
             range2string.max = get_word_max();
 
             let query = info.query;
+            context.title = [info.list.length + " Hit"];
             context.completions = info.list.map(function(n, i) {
                 return {
                     text: <>{i}{info.option}/{info.word}</>.toString(),
