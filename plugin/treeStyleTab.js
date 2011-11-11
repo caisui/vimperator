@@ -222,7 +222,7 @@ var INFO = //{{{
             if(aCount > 0) U2.parentTab(aCount);
             U2.collapseSubtree(0);
             let t = g.selectedTab;
-            g.selectedTab = T.getNextSiblingTab(t) || T.getPreviousSiblingTab(t) || T.getParentTab(t) || t;
+            g.selectedTab = U1.getNextSiblingVisibleTab(t) || U1.getPreviousSiblingVisibleTab(t) || T.getParentTab(t) || t;
             g.removeTab(t);
         },
         removeTabTreeAll: function () {
