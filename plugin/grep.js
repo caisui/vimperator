@@ -564,7 +564,7 @@
             context.process = process;
             context.keys= {text: "text", description:"text"};
             context.match = function(str) { return true; };
-            context.sort = null;
+            context.compare = null;
 
             range2string.max = get_word_max();
 
