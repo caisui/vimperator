@@ -133,6 +133,9 @@ function executeProfile(str, off) {
 
 commands.addUserCommand(["profilejs", "pjs"], "profile javascript", function (args) {
     let str = args[0];
+    if ("-file" in args) {
+        str = File(args["-file"]).read();
+    }
     if (jsd.isOn)
         executeProfile(str);
     else if ("asyncOn" in jsd) {
@@ -148,4 +151,11 @@ commands.addUserCommand(["profilejs", "pjs"], "profile javascript", function (ar
 }, {
     literal: 0,
     completer: completion.javascript,
+    options: [
+        [["-file"], commands.OPTION_STRING, null, function (context) {
+            context = context.fork("file", 0);
+            completion.file(context);
+            return [];
+        }],
+    ],
 }, true);
