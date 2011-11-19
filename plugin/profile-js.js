@@ -1,6 +1,6 @@
 // vim: set sw=4 ts=4 et :
 var INFO = //{{{
-<plugin name="profile-javascript" version="0.0.1"
+<plugin name="profile-javascript" version="0.0.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/profile-js.js"
         summary="profile javascript"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -41,10 +41,16 @@ function print() {
 
     list.sort(function (a, b) b.totalOwnExecutionTime - a.totalOwnExecutionTime);
 
-    let xml = <table/>;
-    xml.* += <style><![CDATA[
+    style = <style><![CDATA[
+        tr {
+            border-bottom: 1px solid gray;
+            background-color: white;
+        }
         tr:nth-child(odd) {
             background-color: #eee;
+        }
+        tr:hover {
+            background-color: rgba(255,255, 222, .8);
         }
         thead tr.h {
             background-color: black;
@@ -70,29 +76,45 @@ function print() {
             color: blue;
         }
     ]]></style>;
-    xml.* += <thead><tr class="h">
+    head = <thead><tr class="h">
         <th>functionName         </th>
         <th>callCount            </th>
         <th>maxOwnExecutionTime  </th>
         <th>average own Time</th>
         <th>totalOwnExecutionTime</th>
         <th>totalExecutionTime   </th>
-        <th>inf</th>
+        <th colspan="0">inf</th>
     </tr></thead>;
+    function f(v) {
+        v = v.toFixed(2);
+        while (v !== (v = v.replace(/^(\d+)(\d{3})/, "$1,$2")));
+        return v;
+    }
+    let body = <></>;
     for(let [,script] in Iterator(list))
-        xml.* += <tr>
+        body += <tr>
             <td>{script.functionName}</td>
-            <td>{script.callCount}</td>
-            <td>{script.maxOwnExecutionTime}</td>
-            <td>{script.totalOwnExecutionTime/script.callCount}</td>
-            <td>{script.totalOwnExecutionTime}</td>
-            <td>{script.totalExecutionTime}</td>
-            <td class="a"><div class="i">
+            <td align="right">{script.callCount}</td>
+            <td align="right">{f(script.maxOwnExecutionTime)}</td>
+            <td align="right">{f(script.totalOwnExecutionTime/script.callCount)}</td>
+            <td align="right">{f(script.totalOwnExecutionTime)}</td>
+            <td align="right">{f(script.totalExecutionTime)}</td>
+            <td><a href={script.fileName}>*</a></td>
+            <td class="a">#<div class="i">
             <span><a href={script.fileName}>{script.fileName}</a>:{script.line}</span>
             <pre>{script.functionSource}</pre>
             </div></td>
         </tr>;
-    liberator.echo(xml);
+
+    let xml = style + <tablel>{head}<tbody>{body}</tbody></tablel>;
+    var doc = commandline._multilineOutputWidget.contentDocument;
+    doc.body.innerHTML = "";
+    var r = doc.createRange();
+    r.selectNode(doc.body);
+    //doc.body.insertAdjacentHTML("afterbegin", xml.toXMLString());
+    doc.body.appendChild(r.createContextualFragment(xml.toXMLString()));
+    commandline.updateOutputHeight(true);
+    modes.set(modes.COMMAND_LINE, modes.OUTPUT_MULTILINE);
 }
 
 function executeProfile(str, off) {
