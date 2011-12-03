@@ -228,6 +228,11 @@ _generate: function _generate(win, screen) {
             if (item.nodeType == Node.ELEMENT_NODE)
                 b[k++] = item;
         }
+
+        //xxx: HTMLAreaElement が 含まれないため
+        let c = Array.slice(doc.getElementsByTagName("area"));
+        if (c.length > 0) Array.splice.apply(null, [b, b.length, 0].concat(c));
+
         b.sort(function (a, b) a.compareDocumentPosition(b) & 0x2);
         nodeList = b;
     }
