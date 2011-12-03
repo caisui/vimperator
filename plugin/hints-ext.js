@@ -74,6 +74,7 @@ function HintsExt() {
 
 function getUtils(win) win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils)
 
+if (!highlight.get("HintExtElem")) {
 highlight.loadCSS(<![CDATA[
     HintExtElem,,*  {
         border: 1px solid rgba(128,128,128,.5);
@@ -96,6 +97,7 @@ styles.addSheet(true, "HintExtStyle", "*", <><![CDATA[
     z-index:65535!important;
 }
 ]]></>.toString(), true);
+}
 
 HintsExt.prototype = {
 init: function (hints) {
