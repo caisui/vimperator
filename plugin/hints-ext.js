@@ -579,8 +579,10 @@ HintsExt.prototype._processHints = liberator.eval("(function() " + src + ")()");
 
 ////input[not(@type='hidden')] | //xhtml:input[not(@type='hidden')] | //a | //xhtml:a | //area | //xhtml:area | //iframe | //xhtml:iframe | //textarea | //xhtml:textarea | //button | //xhtml:button | //select | //xhtml:select | //*[@onclick or @onmouseover or @onmousedown or @onmouseup or @oncommand or @role='link']
 let hinttags = HintsExt.prototype.hinttags
-= ["input:not([type='hidden'])", "a", "area", "iframe", "textarea", "button", "select"].concat(
-["onclick", "onmouseover", "onmousedown", "onmouseup", "oncommand", "role='link'"].map(function (s) "[" + s + "]")
+= ["input:not([type='hidden'])", "area", "iframe", "textarea", "button", "select", ":-moz-any-link"].concat(
+["onclick", "onmouseover", "onmousedown", "onmouseup", "oncommand", "tabindex"].map(function (s) "[" + s + "]"),
+['link' ,'button' ,'checkbox' ,'combobox' ,'listbox' ,'listitem' ,'menuitem' ,'menuitemcheckbox' ,
+    'menuitemradio' ,'option' ,'radio' ,'scrollbar' ,'slider' ,'spinbutton' ,'tab' ,'textbox' ,'treeitem'].map(function (s) "[role='"+s+"']")
 ).join(",");
 
 let h = new HintsExt();
