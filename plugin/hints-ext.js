@@ -805,7 +805,6 @@ if (liberator.globalVariables["use_hints_ext_extendedhinttags"]) {
         if (c) hints.addModeEx(c, "caret",  extra.action, extra.generate);
         if (v) hints.addModeEx(v, "visual", extra.action, extra.generate);
     }
-                hints.addSimpleMap("<C-l>", function () {this.relocation(); });
 }
 
 // hintchars-ex.js の 移植 {{{
