@@ -14,9 +14,12 @@ var INFO = //{{{
     </description>
     </item>
     <item>
-        <spec>let use_hintchars_ex=1</spec>
+        <spec>let use_hintchars_ex=1 or 2</spec>
         <description>
-        で、hintchars の 最初の一文字目の出現頻度を同等にします。
+        1 で、hintchars の 最初の一文字目の出現頻度を同等にします。
+        </description>
+        <description>
+        2 で、hintchars の 桁数を同一にします。
         </description>
     </item>
 
@@ -28,11 +31,26 @@ var INFO = //{{{
     </item>
 
     <item>
+    <spec>:let use_hints_ext_caret="[a-zA-Z]"</spec>
+    <description>
+        caret mode 開始位置を選択 する Hint を 追加
+    </description>
+    </item>
+
+    <item>
+    <spec>:let use_hints_ext_visual="[a-zA-Z]"</spec>
+    <description>
+        visual mode 開始位置を選択 する Hint を 追加
+    </description>
+    </item>
+
+    <item>
     <spec>:let use_hints_ext_extendedhinttags=1</spec>
     <description>
         <o>extendedhinttags</o> をクエリーセレクタ版で上書きします
     </description>
     </item>
+
     <item>
     <spec>:js hints.addSimpleMap(<a>key</a>, <a>callback</a>)</spec>
     <description>
@@ -52,6 +70,31 @@ var INFO = //{{{
             <k name="C-l"/>でhint の 重なりを整理
             <code><![CDATA[
                 hints.addSimpleMap("<C-l>", function () {this.relocation(); });
+            ]]></code>
+        </p>
+    </description>
+    </item>
+
+    <item>
+    <spec>:js hints.addModeEx(<a>mode</a>, <a>prompt</a>, <a>active</a>, <a>generate</a>)</spec>
+    <description>
+        <p>
+            Hint "z" に window を 4分割 する
+            <code><![CDATA[
+                hints.addModeEx("z", "test", function (val) {
+                    alert(val);
+                }, function (win, screen) {
+                    let w = screen.right  - screen.left;
+                    let h = screen.bottom - screen.top;
+                    let l = screen.left;
+                    let t = screen.top;
+                    return [
+                        {value: 1 , rect: [plugins.hintsExt.Rect(l       , t       , l + w/2 , t + h/2)], text: "msg 1", showText: true},
+                        {value: 2 , rect: [plugins.hintsExt.Rect(l + w/2 , t       , l + w   , t + h/2)], text: "msg 2", showText: true},
+                        {value: 3 , rect: [plugins.hintsExt.Rect(l       , t + h/2 , l + w/2 , t + h  )], text: "msg 3", showText: true},
+                        {value: 4 , rect: [plugins.hintsExt.Rect(l + w/2 , t + h/2 , l + w   , t + h  )], text: "msg 4", showText: true},
+                    ];
+                });
             ]]></code>
         </p>
     </description>
@@ -85,6 +128,9 @@ highlight.loadCSS(<![CDATA[
     HintExtActive,,*  {background-color: rgba(128,255,128,.3);}
     HintExt,,* {font-size: 12px;color:white;background-color:red;font-weight: bold;text-transform: uppercase;-moz-border-radius: 2px; padding: 0 2px;}
     HintExtActive>span,,*  {background-color: blue;}
+HintExtActive,,*  {background-color: rgba(128,255,128,.3);}
+HintExtActive>*,,*  {background-color: blue;}
+Hint>.x,,* { opacity: .6; }
 ]]>.toString());
 
 styles.addSheet(true, "HintExtStyle", "*", <><![CDATA[
@@ -189,35 +235,41 @@ _showHints: function () {
                 kNum = validHints.length;
                 validHints[kNum] = item;
                 //item.hint.firstChild.setAttribute("number", hints._num2chars(kNum + 1));
-                item.chars = item.hint.firstChild.textContent = hints._num2chars(kNum + 1);
                 item.hint.style.display = ""
             } else {
                 item.chars = "";
                 item.hint.style.display = "none"
             }
         }
+        for (let i = 0, j = validHints.length; i < j; ++i) {
+            let item = validHints[i];
+            let nodes = item.hint.firstChild.childNodes;
+            nodes[0].textContent = "";
+            item.chars = nodes[1].textContent = item.showText ? hints._num2chars(i + 1, j) + ":" + item.text : hints._num2chars(i + 1, j);
+        }
     } else {
-        let num = this._hintNumber == 0 ? "" : this._num2chars(this._hintNumber);
+        let num = this._hintNumber == 0 ? "" : this._hintNumberStr;
         let len = num.length;
         let validHints = this._validHints;
 
         for (let i = 0, j = validHints.length; i < j; ++i) {
             let item = validHints[i];
-            item.hint.style.display = item.chars.substr(0, len) == num ? "" : "none";
+            let show = item.chars.substr(0, len) === num;
+            item.hint.style.display = show ? "" : "none";
+            let nodes = item.hint.firstChild.childNodes;
+            if (show) {
+                nodes[0].textContent = num;
+                nodes[1].textContent = item.chars.substr(len);
+            }
         }
     }
 
     this._docs.forEach(function (e) e.root.style.display = "");
     this._showActiveHint(this._hintNumber || 1);
 },
-_generate: function _generate(win, screen) {
-    if (!win) win = config.browser.contentWindow;
+_iterTags: function (win, screen) {
     const doc = win.document;
     let winUtils = getUtils(win);
-    if (!screen)
-        screen = {top: 0, left: 0, bottom: win.innerHeight, right: win.innerWidth};
-
-    if (screen.right <= 0 || screen.bottom <= 0) return;
     let nodeList = Array.slice(winUtils.nodesFromRect(
         screen.left, screen.top, 0, screen.right, screen.bottom, 0, true, true
     ));
@@ -237,29 +289,7 @@ _generate: function _generate(win, screen) {
         b.sort(function (a, b) a.compareDocumentPosition(b) & 0x2);
         nodeList = b;
     }
-
-    let pageHints = this._pageHints;
-    let prev;
-    let baseNode = doc.createElementNS(XHTML, "div");
-    baseNode.setAttributeNS(NS, "highlight", "HintExtElem");
-    baseNode.appendChild(doc.createElementNS(XHTML, "span"));
-    baseNode.firstChild.setAttributeNS(NS, "highlight", "HintExt");
-    let root = doc.createElementNS(XHTML, "div");
-    root.setAttributeNS(NS, "highlight", "hints");
-
-    root.style.cssText = <>
-    z-index: 65535!important;
-    position: fixed!important;
-    top: 0!important;
-    left: 0!important;
-    text-align: left!important;
-    margin: 0 !important;
-    display: none;
-</>;
-    root.style.display = "none";
-
-    let frames = [];
-    let selector = this._hintMode.tags(win);
+    let selector = this._hintMode.tags(win, screen);
     var matcher;
     function makeMatcher(array) {
         let pos = 0;
@@ -288,30 +318,125 @@ _generate: function _generate(win, screen) {
     }
 
     let prev = void 0;
-    let start = pageHints.length;
-    let range = doc.createRange();
+    let toString = Object.prototype.toString;
 
-    //for (let i = nodeList.length - 1; i >= 0; --i) {
     for (let i = 0, j = nodeList.length; i < j; ++i) {
+        let showText = false;
+        let text;
         let node = nodeList[i];
         if (node.nodeType != Node.ELEMENT_NODE) continue;
-        if ("contentWindow" in node) frames[frames.length] = node;
         if (!matcher(node)) continue;
         else if (prev == (prev =  node)) continue;
 
         let rects = node.getClientRects();
+        if (rects.length === 0) continue;
 
-        //if (rects.length == 1) {
-        //    rects = [node.getBoundingClientRect()];
+        let objectName = toString.call(node);
+        if (objectName === "[object HTMLInputElement]"
+         || objectName === "[object HTMLSelectElement]"
+         || objectName === "[object HTMLTextAreaElement]") {
+            [text, showText] = this._getInputHint(node, doc);
+        //} else if (objectName === "[object HTMLAreaElement]") {
+        } else {
+            text = node.textContent.toLowerCase();
 
-        //if (rects.length == 1) {
-        //    range.selectNodeContents(node);
-        //    let rect1 = range.getBoundingClientRect();
-        //    let rect2 = rects[0];
-        //    if (rect1.height < (rect2.bottom - rect2.top))
-        //        rects = [rect1];
-        //}
+            //if (!text.trim()) {
+            //    let img = node.querySelector("img");
+            //    if (img) {
+            //        text = img.getAttribute("alt");
+            //        let isInline = win.getComputedStyle(node, null).display.substring(0, 6) === "inline"
+            //        if (isInline) {
+            //            // xxx: Image
+            //            let r = doc.createRange();
+            //            r.selectNodeContents(node);
+            //            rects = r.getClientRects();
+            //            r.detach();
+            //        }
+            //    }
+            //}
+        }
 
+        if (objectName === "[object HTMLAreaElement]") {
+            rects = [this._getAreaOffset(node, rects[0])];
+        }
+
+        yield {
+            value: node,
+            rect: rects,
+            text: text,
+            showText: showText,
+        };
+    }
+},
+_getAreaOffset: function (elem, rect) {
+    try {
+        let coords = elem.getAttribute("coords").split(/\s*[;,]\s*/g).map(Number);
+        let shape  = elem.getAttribute("shape").toLowerCase();
+
+        let x1, y1, x2, y2;
+        if ((shape === "rect" || shape === "rectangle") && coords.length === 4) {
+            [x1, y1, x2, y2] = coords;
+        } else if (shape === "circle" && coords.length === 3) {
+            let [x, y, r] = coords;
+            [x1, y1, x2, y2] = [x -r, y -r, x + r, y + r];
+        } else if ((shape == "poly" || shape == "polygon") && coords.length % 2 == 0) {
+            let [x, y] = [coords[0], coords[1]];
+            [x1, y1, x2, y2] = [x, y, x, y];
+            for (let i = 2, j = coords.length; i < j; i += 2) {
+                [x, y] = [coords[i], coords[i + 1]];
+                if (x < x1) x1 = x;
+                else if (x > x2) x2 = x;
+                if (y < y1) y1 = y;
+                else if (y > y2) y2 = y;
+            }
+        } else {
+            return rect;
+        }
+        return HintsExt.Rect(rect.left + x1, rect.top + y1, rect.left + x2, rect.top + y2);
+    } catch (ex) {
+        return rect;
+    }
+},
+_generate: function _generate(win, screen) {
+    if (!win) win = config.browser.contentWindow;
+    const doc = win.document;
+    if (!screen)
+        screen = {top: 0, left: 0, bottom: win.innerHeight, right: win.innerWidth};
+
+    if (screen.right <= 0 || screen.bottom <= 0) return;
+
+    const hintMode = this._hintMode;
+    if (hintMode.generate) {
+        var obj = hintMode.generate(win, screen);
+        if (obj.toString() === "[object Generator]");
+        else if ("length" in obj)
+            obj = (function _arrayLike(a) {for(let i = 0, j = a.length; i < j; i++) yield a[i];})(obj);
+    } else {
+        obj = this._iterTags(win, screen);
+    }
+
+    let pageHints = this._pageHints;
+    let start = pageHints.length;
+    let baseNode = util.xmlToDom(
+        <div highlight="HintExtElem"><span highlight="Hint"><span class="x"/><span/></span></div>,
+        doc);
+    let root = doc.createElementNS(XHTML, "div");
+    root.setAttributeNS(NS, "highlight", "hints");
+
+    root.style.cssText = <>
+    z-index: 65535!important;
+    position: fixed!important;
+    top: 0!important;
+    left: 0!important;
+    text-align: left!important;
+    margin: 0 !important;
+    display: none;
+</>;
+    root.style.display = "none";
+
+    for (let item in obj) {
+        let value = item.value;
+        let rects = item.rect;
         for (let ri = 0, rj = rects.length; ri < rj; ++ri) {
             let rect = rects[ri];
 
@@ -325,7 +450,6 @@ _generate: function _generate(win, screen) {
 
             let style = "top:" + top + "px;left:" + left + "px;width:" + (width) + "px;height:" + (height) + "px;";
             let num = pageHints.length;
-            let text = node.textContent;
             let e = baseNode.cloneNode(true);
             e.setAttribute("style", style);
             //e.firstChild.setAttribute("number", this._num2chars(num + 1));
@@ -333,31 +457,33 @@ _generate: function _generate(win, screen) {
 
             pageHints[num] = {
                 hint: e,
-                elem: node,
-                text: text,
+                elem: value,
+                text: item.text || "",
+                showText: item.showText || false,
                 left: left,
                 top:  top,
             };
         }
-
     }
 
     let body = doc.body || doc.querySelector("body") || doc.documentElement;
     body.appendChild(root);
     this._docs.push({ doc: doc, start: start, end: pageHints.length - 1, root: root });
 
+    let frames = Array.slice(win.frames);
     for (let i = 0, j = frames.length; i < j; ++i) {
         let frame = frames[i];
 
-        let rect = frame.getBoundingClientRect();
+        let rect = frame.frameElement.getBoundingClientRect();
+        if (rect.top > screen.bottom || rect.left > screen.right) continue;
         let aScreen = {
             top:  Math.max(0, - rect.top),
             left: Math.max(0, - rect.left),
         };
-        aScreen.right  = Math.min(screen.right,  rect.right  - rect.left);
-        aScreen.bottom = Math.min(screen.bottom, rect.bottom - rect.top);
+        aScreen.right  = Math.min(screen.right,  rect.right) - rect.left;
+        aScreen.bottom = Math.min(screen.bottom, rect.bottom) - rect.top;
 
-        this._generate(frame.contentWindow, aScreen);
+        this._generate(frame, aScreen);
     }
 },
 onEvent: function onEvent(event) {
@@ -392,6 +518,7 @@ onEvent: function onEvent(event) {
                     break;
                 }
             }
+            this._hintNumberStr = this._num2chars(this._hintNumber, this._validHints.length);
 
             this._showActiveHint(this._hintNumber, oldId);
             this._updateStatusline();
@@ -399,12 +526,13 @@ onEvent: function onEvent(event) {
 
         case "<BS>": {
             const self = this;
-            function backChar(number) 
-                self._chars2num(let (c=self._num2chars(self._hintNumber)) c.substr(0, c.length - 1));
 
             if (this._hintNumber > 0 && !this._usedTabKey) {
                 this._showActiveHint(null, this._hintNumber);
-                this._hintNumber = backChar(this._hintNumber);
+                let str = this._hintNumberStr;
+                str = str.substr(0, str.length - 1);
+                this._hintNumberStr = str;
+                this._hintNumber = str ? this._chars2num(str) : 0;
                 this._showHints();
                 if (this._hintNumber == 0)
                     this._prevInput = "text";
@@ -412,7 +540,10 @@ onEvent: function onEvent(event) {
             else {
                 this._usedTabKey = false;
                 let oldId = this._hintNumber;
-                this._hintNumber = oldId == 0 ? 1 : backChar(oldId);
+                let str = this._hintNumberStr;
+                str = str.substr(0, str.length - 1);
+                this._hintNumberStr = str;
+                this._hintNumber = str ? this._chars2num(str) : 0;
                 this._showActiveHint(this._hintNumber, oldId);
                 liberator.beep();
                 return;
@@ -437,9 +568,12 @@ onEvent: function onEvent(event) {
                 if (this._hintNumber == 0 || this._usedTabKey) {
                     this._usedTabKey = false;
                     this._hintNumber = this._chars2num(key);
+                    this._hintNumberStr = key;
                 }
-                else
-                    this._hintNumber = this._chars2num(this._num2chars(this._hintNumber) + key);
+                else {
+                    this._hintNumberStr += key;
+                    this._hintNumber = this._chars2num(this._hintNumberStr);
+                }
 
                 //this._updateStatusline();
 
@@ -527,7 +661,7 @@ onEvent: function onEvent(event) {
                 if (!(index in lines)) lines[index] = [];
                 lines[index].push(item);
             };
-            
+
             // xxx: debug
             if (0) {
                 let kE = doc.createElement("div");
@@ -563,24 +697,35 @@ onEvent: function onEvent(event) {
             });
         });
         liberator.log(<>relocation:{Date.now() - time} ms</>.toString());
+    },
+    addModeEx: function (mode, prompt, action, generate) {
+        let hintMode = Hints.Mode(prompt, action);
+        hintMode.generate = generate;
+        this._hintModes[mode] = hintMode;
     }
 };
+this.Rect = HintsExt.Rect = function (left, top, right, bottom) ({
+    left: left,
+    top: top,
+    right: right,
+    bottom: bottom,
+});
 
 let src = Hints.prototype._processHints.toSource()
     .replace("this._validHints[activeIndex];", "this._validHints[activeIndex].elem;")
     .replace("e.getAttribute", "e.elem.getAttribute")
-    .replace("_validHints[0]", "_validHints[0].elem")
+    //.replace("_validHints[0]", "_validHints[0].elem")
+    .replace("let firstHref = this._validHints[0]", "let firstHref = let(e = this._validHints[0].elem) !e.getAttribute ? null : e")
 ;
 
 HintsExt.prototype._processHints = liberator.eval("(function() " + src + ")()");
 
-
-["_num2chars", "_chars2num", "_checkUnique", "_onInput", "_hintMatcher", "_isHintNumber1", "hide", "setTimeout", "addMode", "_updateStatusline"]
+["_num2chars", "_chars2num", "_checkUnique", "_onInput", "_hintMatcher", "_isHintNumber1", "hide", "setTimeout", "addMode", "_updateStatusline", "_getInputHint"]
 .forEach(function (a) HintsExt.prototype[a] = Hints.prototype[a]);
 
 ////input[not(@type='hidden')] | //xhtml:input[not(@type='hidden')] | //a | //xhtml:a | //area | //xhtml:area | //iframe | //xhtml:iframe | //textarea | //xhtml:textarea | //button | //xhtml:button | //select | //xhtml:select | //*[@onclick or @onmouseover or @onmousedown or @onmouseup or @oncommand or @role='link']
 let hinttags = HintsExt.prototype.hinttags
-= ["input:not([type='hidden'])", "area", "iframe", "textarea", "button", "select", ":-moz-any-link"].concat(
+= ["input:not([type='hidden'])", "a", "area", "iframe", "textarea", "button", "select"].concat(
 ["onclick", "onmouseover", "onmousedown", "onmouseup", "oncommand", "tabindex"].map(function (s) "[" + s + "]"),
 ['link' ,'button' ,'checkbox' ,'combobox' ,'listbox' ,'listitem' ,'menuitem' ,'menuitemcheckbox' ,
     'menuitemradio' ,'option' ,'radio' ,'scrollbar' ,'slider' ,'spinbutton' ,'tab' ,'textbox' ,'treeitem'].map(function (s) "[role='"+s+"']")
@@ -598,9 +743,75 @@ if (liberator.globalVariables["use_hints_ext_extendedhinttags"]) {
     options.extendedhinttags = hinttags;
 }
 
-// hintchars-ex.js の 移植 {{{
+{
+    let c = liberator.globalVariables["use_hints_ext_caret"];
+    let v = liberator.globalVariables["use_hints_ext_visual"];
 
-if (liberator.globalVariables["use_hintchars_ex"]) {
+    if (c || v) {
+        let extra = {
+            action: function ([elm, line], link) {
+                let doc = elm.ownerDocument;
+                let win = doc.defaultView;
+                let r = doc.createRange();
+                let selection = win.getSelection();
+
+                r.setStart(elm, 0);
+                selection.removeAllRanges();
+                selection.addRange(r);
+
+                Buffer.focusedWindow = win;
+                if (line > 0) {
+                    for (; line > 0; line--)
+                        selection.modify("move", "right", "line");
+                    selection.modify("move", "left", "lineboundary");
+                }
+                options.setPref("accessibility.browsewithcaret", true);
+                if (this.prompt === "visual")
+                    modes.set(modes.VISUAL, modes.CARET);
+            },
+            generate: function (win, screen) {
+                let nodes = getUtils(win).nodesFromRect(
+                    screen.left, screen.top, 0, screen.right, screen.bottom, 0, true, true);
+                nodes = Array.slice(nodes);
+                {
+                    let a = [];
+                    for (let i = 0, j = nodes.length; i < j; i++) {
+                        let e = nodes[i];
+                        if (e.nodeType === Node.TEXT_NODE)
+                            a[a.length] = e;
+                    }
+                    a.sort(function (a, b) a.compareDocumentPosition(b) & 0x2);
+                    nodes = a;
+                }
+                var q;
+                var r = win.document.createRange();
+                nodes = nodes.filter(function (a) q !== (q = a));
+                for (let i = 0, j = nodes.length; i < j; i++) {
+                    let e = nodes[i];
+                    r.selectNode(e);
+                    let rects = r.getClientRects();
+                    for (let ri = 0, rj = rects.length; ri < rj; ri++) {
+                        yield {
+                            rect: [rects[ri]],
+                            value: [e, ri],
+                            text: e.data,
+                        };
+                    }
+                }
+                r.detach();
+            }
+        };
+
+        if (c) hints.addModeEx(c, "caret",  extra.action, extra.generate);
+        if (v) hints.addModeEx(v, "visual", extra.action, extra.generate);
+    }
+                hints.addSimpleMap("<C-l>", function () {this.relocation(); });
+}
+
+// hintchars-ex.js の 移植 {{{
+//if (liberator.globalVariables["use_hintchars_ex"]) {
+switch (liberator.globalVariables["use_hintchars_ex"]) {
+case 1: {
     let cache = {};
 
     function getProgression(r, n) {
@@ -643,10 +854,6 @@ if (liberator.globalVariables["use_hintchars_ex"]) {
                 break;
             }
 
-        // xxx: たぶんあってるが、まるめ誤差とMath.logのコストが心配なので
-        //digit = Math.floor(Log(base, (base - 1) * num + 1));
-        //num -= getProgression(base, digit++);
-
         let chars = "";
         while (num > 0) {
             chars = hintchars[num % base] + chars;
@@ -668,6 +875,52 @@ if (liberator.globalVariables["use_hintchars_ex"]) {
         else // we have a unique hint
             this._processHints(true);
     };
+} break;
+case 2: {
+    hints._chars2num = function(chars) {
+        let hintchars = options.hintchars;
+        let base = hintchars.length;
+        var num = 0;
+        for (let i = 0, j = chars.length; i < j; ++i) {
+            num = num * base + hintchars.indexOf(chars[i]);
+        }
+        return num + 1;
+    };
+    hints._num2chars = function (num, base) {
+        let chars = options.hintchars;
+        let len = chars.length;
+        var s = "";
+        num--;
+        do {
+            s = chars[num % len] + s;
+            num = Math.floor(num / len);
+        } while (num > 0)
+        if (base) {
+            let len = chars.length;
+            let count = 1;
+            for (let x = len; x < base; count++) x *= len;
+            for (let i = count - s.length; i > 0; --i)
+                s = chars[0] + s;
+        }
+        return s;
+    };
+    hints._checkUnique = function () {
+        if (this._hintNumber == 0)
+            return;
+        let num = this._num2chars(this._validHints.length).length;
+        liberator.assert(
+            (this._hintNumber - 1) * Math.pow(options.hintchars.length, num - this._hintNumberStr.length)
+                <= this._validHints.length);
+
+        if (this._hintNumberStr.length < this._num2chars(this._validHints.length).length) {
+            let timeout = options["hinttimeout"];
+            if (timeout > 0)
+                this._activeTimeout = this.setTimeout(function () { this._processHints(true); }, timeout);
+        }
+        else // we have a unique hint
+            this._processHints(true);
+    };
+}break;
 }
 //}}}
 }).call(this);
