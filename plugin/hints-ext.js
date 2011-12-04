@@ -905,10 +905,22 @@ case 2: {
     hints._checkUnique = function () {
         if (this._hintNumber == 0)
             return;
-        let num = this._num2chars(this._validHints.length).length;
-        liberator.assert(
-            (this._hintNumber - 1) * Math.pow(options.hintchars.length, num - this._hintNumberStr.length)
-                <= this._validHints.length);
+        let vlen = this._validHints.length
+        let num = this._num2chars(vlen).length;
+        let minNum = (this._hintNumber - 1) * Math.pow(options.hintchars.length, num - this._hintNumberStr.length);
+
+        if (vlen <= minNum) {
+            let oldId = this._hintNumber;
+            let str = this._hintNumberStr;
+            str = str.substr(0, str.length - 1);
+            this._hintNumberStr = str;
+            this._hintNumber = str ? this._chars2num(str) : 0;
+            this._showHints();
+            if (this._hintNumber == 0)
+                this._prevInput = "text";
+            this._showActiveHint(null, oldId);
+            liberator.beep();
+        }
 
         if (this._hintNumberStr.length < this._num2chars(this._validHints.length).length) {
             let timeout = options["hinttimeout"];
