@@ -105,6 +105,7 @@ init: function (hints) {
     this.simpleMaps = [];
     this._reset();
 },
+get previnput() this._prevInput,
 _reset: function () {
     statusline.updateInputBuffer("");
     this._hintString = "";
