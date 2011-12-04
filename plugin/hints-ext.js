@@ -734,7 +734,7 @@ let hinttags = HintsExt.prototype.hinttags
 let h = new HintsExt();
 
 modules.hints = h;
-hints.addMode("f", "" , function(e) Buffer.focusedWindow = e.ownerDocument.defaultView, function () ":root");
+hints.addModeEx("f", "Focus Frame", function(win) Buffer.focusedWindow = win, function (win, screen) [{rect: [screen], value: win}]);
 
 if (liberator.globalVariables["use_hints_ext_hinttags"]) {
     options.hinttags = hinttags;
