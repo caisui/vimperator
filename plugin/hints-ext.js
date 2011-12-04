@@ -807,9 +807,8 @@ if (liberator.globalVariables["use_hints_ext_extendedhinttags"]) {
     }
 }
 
-// hintchars-ex.js の 移植 {{{
-//if (liberator.globalVariables["use_hintchars_ex"]) {
 switch (liberator.globalVariables["use_hintchars_ex"]) {
+// hintchars-ex.js の 移植 {{{
 case 1: {
     let cache = {};
 
@@ -874,7 +873,7 @@ case 1: {
         else // we have a unique hint
             this._processHints(true);
     };
-} break;
+} break; //}}}
 case 2: {
     hints._chars2num = function(chars) {
         let hintchars = options.hintchars;
@@ -921,5 +920,4 @@ case 2: {
     };
 }break;
 }
-//}}}
 }).call(this);
