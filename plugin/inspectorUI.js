@@ -482,99 +482,32 @@ var INFO = //{{{
         "right": "firstElementChild",
     };
     function getUtils(win) win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils)
-    function screenNodeWalk(dir, count) {
-        if (count === void 0) count = 0;
-        let box = targetter();
-        let r = {};
-        let win = selection.ownerDocument.defaultView;
-        let pt = getPosition(box, win);
-
-        switch (dir) {
-        case "left":
-            r.x = 0;
-            r.y = pt.y;
-            r.w = pt.x;
-            r.h = pt.s;
-            r.p1 = "left";
-            r.p2 = "right";
-            r.desc = true;
-            r.v = pt.x - 1;
-            r.a = "x";
-            break;
-        case "right":
-            r.x = pt.x;
-            r.y = pt.y;
-            r.w = win.innerWidth - pt.x;
-            r.h = pt.s;
-            r.p1 = "left";
-            r.p2 = "right";
-            r.desc = false;
-            r.v = pt.x + 1;
-            r.a = "x";
-            break;
-        case "down":
-            r.x = pt.x;
-            r.y = pt.y;
-            r.w = pt.s;
-            r.h = win.innerHeight - pt.y;
-            r.p1 = "top";
-            r.p2 = "bottom";
-            r.desc = false;
-            r.v = pt.y + 1;
-            r.a = "y";
-            break;
-        case "up":
-            r.x = pt.x;
-            r.y = 0;
-            r.w = pt.s;
-            r.h = pt.y;
-            r.p1 = "top";
-            r.p2 = "bottom";
-            r.desc = true;
-            r.v = pt.y - 1;
-            r.a = "y";
-            break;
-        }
-        r.v += pt.s / 2;
-        let nodes = Array.slice(getUtils(win).nodesFromRect(
-            r.x, r.y, 0, r.w, r.h, 0, true, true), 0);
-        let list = [];
-        for (let [, e] in Iterator(nodes)) {
-            if (e.nodeType !== Node.ELEMENT_NODE) continue;
-            let rect = e.getBoundingClientRect();
-            list.push({v:rect[r.p1], e: e});
-            list.push({v:rect[r.p2], e: e});
-        }
-        let comp = r.desc ? function (a, b) b.v - a.v : function (a, b) a.v - b.v;
-        list.sort(comp);
-        var q;
-        list = list.filter(function (a) (q !== (q = a.v)) && comp(a, r) > 0);
-
-        if (list.length) {
-            let val = list[Math.min(count, list.length - 1)];
-            let p = ({});
-            p[r.a] = val.v - pt.s / 2;
-            setPosition(box, p, win);
-            IUI.inspectNode(val.e, false);
-        }
-    }
     var tabList = null;
+
     function toggleScreen(tab) {
         let cur = selection;
         let nodeList = tabList;
         if (!tabList) {
-            let box = targetter();
-            let win = cur.ownerDocument.defaultView;
+            let box = iui.caret;
+            let win = iui.window;
             let pt = getPosition(box, win);
             //範囲内 Element の 抽出
-            nodeList = Array.filter(getUtils(win).nodesFromRect(
-                pt.x, pt.y, 0, pt.s, pt.s, 0, true, true), function (e) e.nodeType === Node.ELEMENT_NODE);
-            // 面積でソート
-            nodeList.sort(function (a, b) let (r1 = a.getBoundingClientRect(), r2 = b.getBoundingClientRect())
-                (r1.width * r1.height) - (r2.width * r2.height));
-            var p;
-            // uniq
-            nodeList = nodeList.filter(function (e) p !== (p = e));
+            nodeList = nodesFromRectRec(win, {x: pt.x, y:pt.y, width: pt.s, height: pt.s});
+            nodeList = nodeList.reduce(function (a, val) {
+                let e = val[0];
+                if (e.nodeType === Node.ELEMENT_NODE) {
+                    let r = e.getBoundingClientRect();
+                    a.push({e: e, s: r.width * r.height});
+                }
+                return a;
+            }, []);
+            nodeList.sort(function (a, b) a.s - b.s);
+            var q;
+            nodeList = nodeList.reduce(function (a, val) {
+                if (q !== (q = val.e)) a.push(val.e);
+                return a;
+            }, []);
+
             let index = nodeList.indexOf(cur);
             if (index > 0) {
                 nodeList.splice(index, 1);
@@ -669,6 +602,95 @@ var INFO = //{{{
             IUI.inspectNode(dom, false);
     }
 
+    function moveBox10 (dir, count) {
+        let a1, a2;
+        switch (dir) {
+        case "left":  [a1, a2, i] = ["innerWidth",  "x", -1]; break;
+        case "right": [a1, a2, i] = ["innerWidth",  "x",  1]; break;
+        case "up":    [a1, a2, i] = ["innerHeight", "y", -1]; break;
+        case "down":  [a1, a2, i] = ["innerHeight", "y",  1]; break;
+        }
+        let box = iui.caret;
+        let pt = getPosition(box);
+
+        let win = iui.window;
+        let w = win[a1] / 10;
+        let i = ((pt[a2] / w) ^ 0) + i * count;
+        pt[a2] = i * w + 1;
+        setPosition(box, pt);
+        let e = elementFromPoint(pt.x, pt.y);
+        if (e) IUI.inspectNode(e, false);
+    }
+
+    function nodesFromRectRec(win, rect) {
+        if (!rect) rect = {top: 0, left: 0, width: win.innerWidth, height: win.innerHeight};
+        else if (rect.width <= 0 || rect.height <= 0) return [];
+
+        let nodes = Array.slice(getUtils(win).nodesFromRect(rect.x, rect.y, 0, rect.width, rect.height, 0, true, true));
+        let list = [];
+        for (let i = 0, j = nodes.length; i < j; i++)
+            list[i] = [nodes[i], rect];
+
+        let wins = win.frames;
+        for (let i = 0, j = wins.length; i < j; i++) {
+            let w = wins[i];
+            let e = w.frameElement;
+            if (!e) continue;
+
+            let r1 = w.frameElement.getBoundingClientRect();
+            let r2 = {
+                x: rect.x - r1.left,
+                y: rect.y - r1.top,
+                width:  Math.min(rect.x + rect.width,  r1.right)  - rect.x,
+                height: Math.min(rect.y + rect.height, r1.bottom) - rect.y,
+            };
+            list = list.concat(nodesFromRectRec(w, r2));
+        }
+        return list;
+    }
+
+    function moveBoxNode(dir, count) {
+        var x, y, lr, inc;
+        var box = iui.caret;
+        var pt = getPosition(box);
+        var s = pt.s;
+        var win = iui.window;
+        var [w, h] = [win.innerWidth, win.innerHeight];
+        switch (dir) {
+        case "left":  [x , y , w , h , lr , inc] = [0    , pt.y , pt.x     , s        , 1 ,-1]; break;
+        case "right": [x , y , w , h , lr , inc] = [pt.x , pt.y , w - pt.x , s        , 1 , 1]; break;
+        case "down":  [x , y , w , h , lr , inc] = [pt.x , pt.y , s        , h - pt.y , 0 , 1]; break;
+        case "up":    [x , y , w , h , lr , inc] = [pt.x , 0    , s        , pt.y     , 0 ,-1]; break;
+        }
+        let list1 = nodesFromRectRec(win, {x: x, y: y, width: w, height: h});
+        let [a1, a2, b] = lr ? ["left", "right", "x"] : ["top", "bottom", "y"];
+
+        //filter
+        let list = [];
+        let v = lr ? x : y;
+        for (let i = 0, j = list1.length; i < j; i++) {
+            let a = list1[i];
+            if (a[0].nodeType !== Node.ELEMENT_NODE) continue;
+            let r = a[0].getBoundingClientRect();
+            list.push({e: a[0], v: (r[a1] - a[1][b] + v) ^ 0});
+            list.push({e: a[0], v: (r[a2] - a[1][b] + v) ^ 0});
+        }
+        list.sort(function (a, b) inc * (a.v - b.v));
+        var q;
+        v = (pt[b] ^ 0) + inc;
+        let xx = list.length;
+        list = list.filter(function (a) (q !== (q = a.v)) && (inc * (a.v - v) > 0));
+
+        if (list.length) {
+            let val = list[Math.min(count, list.length - 1)];
+            let p = ({});
+            //p[b] = val.v - pt.s / 2;
+            p[b] = val.v;
+            setPosition(box, p);
+            IUI.inspectNode(val.e, false);
+        }
+    }
+
     function selectNode(aVPercent, aHPercent, win) {
         if (!win) win = content.window;
         let rect = win.document.documentElement.getBoundingClientRect();
@@ -707,10 +729,12 @@ var INFO = //{{{
         //[["t"], "", function () targetter()],
         [["<Tab>"],   "switch DOM", function () toggleScreen(true)],
         [["<S-Tab>"], "switch DOM", function () toggleScreen(false)],
-        [["gh", "b"], "move DOM border(left)",  function (count) screenNodeWalk("left" , count), {count: true}],
-        [["gl", "w"], "move DOM border(right)", function (count) screenNodeWalk("right", count),{count: true}],
-        [["gk"],      "move DOM border(top)",   function (count) screenNodeWalk("up"   , count),   {count: true}],
-        [["gj"],      "move DOM border(bottom)",function (count) screenNodeWalk("down", count),{count: true}],
+
+        [["gh", "b"], "move DOM border(left)",  function (count) moveBoxNode("left" , count), {count: true}],
+        [["gl", "w"], "move DOM border(right)", function (count) moveBoxNode("right", count),{count: true}],
+        [["gk"],      "move DOM border(top)",   function (count) moveBoxNode("up"   , count),   {count: true}],
+        [["gj"],      "move DOM border(bottom)",function (count) moveBoxNode("down", count),{count: true}],
+
         [["gc"], "toggle chrome mode", function () toggleChromeMode()],
         [["r"], "echo selection's CSS style Rules", function () echoRules(selection)],
         [["gg"],     "move window top", function () setPosition(targetter(), {y:0})],
