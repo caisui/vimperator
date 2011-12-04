@@ -746,6 +746,9 @@ var INFO = //{{{
         [["y"],  "yank selection node xml" , function () iui.yank()],
         [["d"],  "delete selection node" , function () let(e = iui.node) e.parentNode.removeChild(e)],
         [["?"],  "show mappings" , function () showMaps()],
+
+        [["<C-f>"], "scroll +10%", function (count) moveBox10("down", count || 1), { count: true}],
+        [["<C-b>"], "scroll -10%", function (count) moveBox10("up",   count || 1), { count: true}],
     ].forEach(function (args) {
         mappings.addUserMap.apply(mappings, [[modes.InspectorUI]].concat(args));
     });
