@@ -1,7 +1,7 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 //"use strict";
 var INFO = //{{{
-<plugin name="hints-ext" version="0.0.1"
+<plugin name="hints-ext" version="0.0.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/hints-ext.js"
         summary="Hints Ext"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -130,7 +130,7 @@ highlight.loadCSS(<![CDATA[
     HintExtActive>span,,*  {background-color: blue;}
 HintExtActive,,*  {background-color: rgba(128,255,128,.3);}
 HintExtActive>*,,*  {background-color: blue;}
-Hint>.x,,* { opacity: .6; }
+HintExt::before,,* { /* no style */ }
 ]]>.toString());
 
 styles.addSheet(true, "HintExtStyle", "*", <><![CDATA[
@@ -141,6 +141,9 @@ styles.addSheet(true, "HintExtStyle", "*", <><![CDATA[
 [liberator|highlight~='HintExt'] {
     position: absolute!important;
     z-index:65535!important;
+}
+[liberator|highlight~='HintExt']::before {
+    content: attr(num);
 }
 ]]></>.toString(), true);
 }
@@ -241,11 +244,13 @@ _showHints: function () {
                 item.hint.style.display = "none"
             }
         }
+
         for (let i = 0, j = validHints.length; i < j; ++i) {
             let item = validHints[i];
-            let nodes = item.hint.firstChild.childNodes;
-            nodes[0].textContent = "";
-            item.chars = nodes[1].textContent = item.showText ? hints._num2chars(i + 1, j) + ":" + item.text : hints._num2chars(i + 1, j);
+            item.chars = item.showText ? hints._num2chars(i + 1, j) + ":" + item.text : hints._num2chars(i + 1, j);
+            let node = item.hint.firstChild;
+            node.removeAttribute("num");
+            node.textContent = item.chars;
         }
     } else {
         let num = this._hintNumber == 0 ? "" : this._hintNumberStr;
@@ -256,10 +261,10 @@ _showHints: function () {
             let item = validHints[i];
             let show = item.chars.substr(0, len) === num;
             item.hint.style.display = show ? "" : "none";
-            let nodes = item.hint.firstChild.childNodes;
+            let node = item.hint.firstChild;
             if (show) {
-                nodes[0].textContent = num;
-                nodes[1].textContent = item.chars.substr(len);
+                node.setAttribute("num", num);
+                node.textContent = item.chars.substr(len);
             }
         }
     }
@@ -418,7 +423,7 @@ _generate: function _generate(win, screen) {
     let pageHints = this._pageHints;
     let start = pageHints.length;
     let baseNode = util.xmlToDom(
-        <div highlight="HintExtElem"><span highlight="Hint"><span class="x"/><span/></span></div>,
+        <div highlight="HintExtElem"><span highlight="HintExt"/></div>,
         doc);
     let root = doc.createElementNS(XHTML, "div");
     root.setAttributeNS(NS, "highlight", "hints");
