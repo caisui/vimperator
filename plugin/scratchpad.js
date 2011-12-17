@@ -169,7 +169,7 @@ commands.addUserCommand(["scratchpad"], "show Scratchpad", function (args) {
                 this.setText(array.join("\n"));
             });
         }, {
-            options: [[["-a"], commands.OPTION_NOARG], [["-src"], commands.OPTION_NOARG]],
+            options: [[["-a"], commands.OPTION_NOARG], [["-src"], commands.OPTION_NOARG], [["-c", "--chrome"], commands.OPTION_NOARG]],
             completer: function (context, args) {
                 let doc = args["-c"] ? document : content.document;
 
