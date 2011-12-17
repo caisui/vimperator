@@ -21,7 +21,7 @@ var INFO = //{{{
 (function () {
     //http://teramako.github.com/ECMAScript/ecma6th_syntax.html
 
-    var defaultPath = "~/vimperator/coffee-script.js";
+    var defaultPath = "~/vimperator/es.next.js";
     function lazyGetter(obj, name, callback) {
         obj.__defineGetter__(name, function _callback() {
             delete this[name];
