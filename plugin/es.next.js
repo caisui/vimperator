@@ -75,7 +75,7 @@ var INFO = //{{{
 
     function compile(expression, context) {
         try {
-            var ps = userContext.$ps = new Parser(expression);
+            var ps = new Parser(expression);
             var stmt = ps.parse();
         } catch (ex) {
             ex.message += <>: value = "{ps.lexer.value}" next = "{ps.lexer.current.substring(0, 128)}"</>;
