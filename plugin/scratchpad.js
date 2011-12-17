@@ -93,6 +93,15 @@ function callScratchPad(args, callback) {
         callback.call(Scratchpad, args);
         Scratchpad.editor._undoStack.reset();
     }
+
+    function onLoad(win) {
+        if (win.Scratchpad.addObserver)
+            win.Scratchpad.addObserver({
+                onReady: function () { action(win); },
+            });
+        else action(win);
+    }
+
     if (args["-w"]) {
         var win = services.get("windowMediator").getEnumerator("devtools:scratchpad").getNext();
 
@@ -106,7 +115,7 @@ function callScratchPad(args, callback) {
         return;
     }
     win = Scratchpad.openScratchpad();
-    domEvent1(win, "load", function () action(win), false);
+    domEvent1(win, "load", function() onLoad(win), false);
 }
 
 commands.addUserCommand(["scratchpad"], "show Scratchpad", function (args) {
