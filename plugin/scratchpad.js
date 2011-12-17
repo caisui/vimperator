@@ -185,5 +185,19 @@ commands.addUserCommand(["scratchpad"], "show Scratchpad", function (args) {
                 context.completions = Array.map(doc.getElementsByTagName("script"),compValue).filter(uniq);
             }
         }),
+        Command(["edit"], "edit", function (args) {
+            let expression = args[0];
+            let dom = expression ? liberator.eval(expression) : content.document.body;
+            liberator.assert(dom instanceof Node, ";-)");
+            callScratchPad({__proto__: args, "-ft": "html"}, function() {
+                this.setText(dom.innerHTML);
+                this.saveFile = function () {
+                    dom.innerHTML = this.getText();
+                };
+            });
+        }, {
+            literal: 0,
+            completer: completion.javascript,
+        })
     ]
 }, true);
