@@ -142,6 +142,7 @@ styles.addSheet(true, "HintExtStyle", "*", <><![CDATA[
     position: absolute!important;
     z-index:65535!important;
     line-height: 100%!important;
+    white-space: nowrap;
 }
 [liberator|highlight~='HintExt']::before {
     content: attr(num);
