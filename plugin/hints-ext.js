@@ -1,7 +1,7 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 //"use strict";
 var INFO = //{{{
-<plugin name="hints-ext" version="0.0.2"
+<plugin name="hints-ext" version="0.0.3"
         href="http://github.com/caisui/vimperator/blob/master/plugin/hints-ext.js"
         summary="Hints Ext"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -152,7 +152,22 @@ styles.addSheet(true, "HintExtStyle", "*", <><![CDATA[
 
 HintsExt.prototype = {
 init: function (hints) {
-    this._hintModes = {__proto__: original._hintModes};
+    this._hintModes = {
+        __proto__: original._hintModes,
+        __iterator__: function iterator() {
+            var seen = {};
+            var names = Object.getOwnPropertyNames(this);
+            for (let [, name] in Iterator(names)) {
+                if (name === "__iterator__") continue;
+                yield [name, this[name]];
+                seen[name] = 1;
+            }
+            for (let name in this.__proto__) {
+                if (seen[name]) continue;
+                yield [name, this[name]];
+            }
+        },
+    };
     this.simpleMaps = [];
     this._reset();
 },
