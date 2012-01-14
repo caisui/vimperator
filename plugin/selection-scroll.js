@@ -1,6 +1,6 @@
 // vim: set fdm=marker :
 var INFO = //{{{
-<plugin name="selection-scroll" version="0.0.1"
+<plugin name="selection-scroll" version="0.0.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/selection-scroll.js"
         summary="Selction Scroll"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -87,9 +87,11 @@ var INFO = //{{{
 
     if (!liberator.globalVariables.disabled_selection_scroll_map)
         for (let [cmd, data] in Iterator(aData)) {
-            mappings.addUserMap(aModes, [cmd], "scroll", (function(a) function () {
-                selectionScroll.apply(this, a);
-            })(data));
+            mappings.addUserMap(aModes, [cmd], "scroll", (function(a) function (count) {
+                if (count) var args = a[1] === -1 ? [count, -1] : [-1, count];
+                else args = a;
+                selectionScroll.apply(this, args);
+            })(data), {count: true});
         }
 
     this.scroll = selectionScroll;
