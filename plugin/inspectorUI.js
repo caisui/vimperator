@@ -1,6 +1,6 @@
 // vim: set fdm=marker :
 var INFO = //{{{
-<plugin name="piyo-ui" version="0.0.0"
+<plugin name="piyo-ui" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/inspectorUI.js"
         summary="Inspector UI"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -396,10 +396,10 @@ var INFO = //{{{
     function openChromeMode() {
         let highlighter = IUI.highlighter;
         if (IUI.inspecting)
-            highlighter.detachInspectListeners();
+            IUI.stopInspecting();
         highlighter.browser = window;
         if (IUI.inspecting)
-            highlighter.attachInspectListeners();
+            IUI.stopInspecting();
 
         highlighter.highlighterContainer.classList.add(chromeMode)
     }
