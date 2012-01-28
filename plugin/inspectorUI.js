@@ -737,6 +737,8 @@ var INFO = //{{{
         [["zt"], "scroll selection(top)",    function () scrollIntoView(IUI.selection,  0, -1)],
         [["zz"], "scroll selection(center)", function () scrollIntoView(IUI.selection, 50, -1)],
         [["zb"], "scroll selection(bottom)", function () scrollIntoView(IUI.selection,100, -1)],
+        [["zs"], "scroll selection(bottom)", function () scrollIntoView(IUI.selection, -1,   0)],
+        [["ze"], "scroll selection(bottom)", function () scrollIntoView(IUI.selection, -1, 100)],
         [["i"], "open DOM Inscpector(need DOM Inspector", function () inspectDOMNode(IUI.selection)],
         [["o"], "open Object Inspector(need DOM Inspector)", function () inspectObject(IUI.selection)],
         //[["f"], "", function () selectNode(50, 50)],
