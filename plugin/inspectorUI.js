@@ -403,11 +403,12 @@ var INFO = //{{{
 
     function openChromeMode() {
         let highlighter = IUI.highlighter;
-        if (IUI.inspecting)
+        var inspecting = IUI.inspecting;
+        if (inspecting)
             IUI.stopInspecting();
         highlighter.browser = window;
-        if (IUI.inspecting)
-            IUI.stopInspecting();
+        if (inspecting)
+            IUI.startInspecting();
 
         highlighter.highlighterContainer.classList.add(chromeMode)
     }
