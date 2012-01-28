@@ -384,6 +384,9 @@ var INFO = //{{{
         let range = doc.createRange();
         range.selectNode(node);
 
+        var pos = iui.position;
+        var pos1 = getNodeOffset(node);
+
         selection.addRange(range);
         selection.QueryInterface(Ci.nsISelection2 || Ci.nsISelectionPrivate)
             //.scrollIntoView(Ci.nsISelectionController.SELECTION_FOCUS_REGION, true, aVPercent, aHPercent);
@@ -391,6 +394,11 @@ var INFO = //{{{
 
         selection.removeAllRanges();
         ranges.forEach(function (r) selection.addRange(r));
+
+        var pos2 = getNodeOffset(node);
+        pos.x -= pos1.x - pos2.x;
+        pos.y -= pos1.y - pos2.y;
+        iui.position = pos;
     }
 
     function openChromeMode() {
@@ -533,6 +541,14 @@ var INFO = //{{{
         }
         return pt;
     }
+    function getNodeOffset(node) {
+        var rect = node.getBoundingClientRect();
+        var pt = getWindowOffset(node.ownerDocument.defaultView);
+        pt.x += rect.left;
+        pt.y += rect.top;
+        return pt;
+    }
+
     function setPosition(box, pos, win) {
         let av = {
             x: "left",
