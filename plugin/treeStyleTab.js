@@ -1,6 +1,6 @@
 // vim:set fdm=marker et sw=4 ts=4:
 var INFO = //{{{
-<plugin name="treeStyleTab" version="0.0.2"
+<plugin name="treeStyleTab" version="0.0.3"
         href="http://github.com/caisui/vimperator/blob/master/plugin/treeStyleTab.js"
         summary="Tree Stye Tab"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -30,6 +30,18 @@ var INFO = //{{{
         <default>false</default>
         <description>
             about:blank に対して <k name="r"/> で about:treestyletab-group に 置換する機能を利用しない
+        </description>
+    </item>
+    <item>
+        <tags> plugins.treeStyleTab.control.scrollIntoView </tags>
+        <spec> plugins.treeStyleTab.control.scrollIntoView </spec>
+        <description>
+            mapping sample
+            <code><![CDATA[
+                mappings.addUserMap([modes.NORMAL], ["gzz"], "selected tab scroll to center", function (count) {
+                    plugins.treeStyleTab.control.scrollIntoView(gBrowser.selectedTab, -1, count || 50);
+                }, { count: true});
+            ]]></code>
         </description>
     </item>
 </plugin>; //}}}
@@ -344,7 +356,28 @@ var INFO = //{{{
         },
         moveTabToPrebious: function (aCount) {
             U1.moveTabSubTreeToEx(g.selectedTab, aCount, true);
-        }
+        },
+        scrollIntoView: function scrollIntoView(aTab, aVPercent, aHPercent) {
+            if (!aTab) aTab = gBrowser.selectedTab;
+            var tst = gBrowser.treeStyleTab;
+            var box1 = tst.scrollBoxObject;
+            var box2 = gBrowser.selectedTab.boxObject;
+            var x = {};
+            var y = {};
+            box1.getPosition(x, y);
+
+            if (aVPercent >= 0)
+                x = (box2.y - box2.y) - (box1.width - box2.width) * aVPercent / 100;
+            else
+                x = x.value;
+
+            if (aHPercent >= 0)
+                var y = (box2.y - box1.y) - (box1.height - box2.height) * aHPercent / 100;
+            else
+                y = y.value;
+
+            tst.scrollTo(x, y);
+        },
     };//}}}
 
     //override reload map about:blank & treestyletab-group{{{
