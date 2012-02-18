@@ -1,6 +1,6 @@
 // vim: set ft=javascript fdm=marker:
 var INFO = //{{{
-<plugin name="scratchpad" version="0.0.2"
+<plugin name="scratchpad" version="0.0.3"
         href="http://github.com/caisui/vimperator/blob/master/plugin/scratchpad.js"
         summary="Scratchpad Command"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -23,6 +23,62 @@ var fileType = [
     ["xml", "xml"],
     ["css", "Style Sheet"],
 ];
+
+function installLiberatorEnv(win) {
+    var doc = win.document;
+    const ID = "sp-menu-liberator";
+
+    if (doc.getElementById(ID)) return;
+
+    var e = doc.createElement("menuitem");
+    e.setAttribute("label", "Liberator");
+    e.setAttribute("type", "radio");
+    e.id = ID;
+    doc.getElementById("sp-menu-environment").appendChild(e);
+
+    var Scratchpad = win.Scratchpad;
+    Scratchpad.setLiberatorContext = function setLiberatorContext() {
+        if (this.executionContext == SCRATCHPAD_CONTEXT_LIBERATOR) { return; }
+        this.executionContext = SCRATCHPAD_CONTEXT_LIBERATOR;
+        var notify = this.notificationBox
+        notify.appendNotification(
+            "liberator mode", SCRATCHPAD_CONTEXT_LIBERATOR, null, notify.PRIORITY_WARNING_HIGH + 1, null);
+        this.resetContext();
+    };
+    e.addEventListener("command", Scratchpad.setLiberatorContext.bind(Scratchpad), false);
+
+    const SCRATCHPAD_CONTEXT_CONTENT = 0;
+    const SCRATCHPAD_CONTEXT_BROWSER = 1;
+    const SCRATCHPAD_CONTEXT_LIBERATOR = 2;
+    Scratchpad.evalForContext = function (aString) {
+        var res;
+        if (this.executionContext === SCRATCHPAD_CONTEXT_CONTENT)
+            res = this.evalInContentSandbox(aString);
+        else if (this.executionContext === SCRATCHPAD_CONTEXT_BROWSER)
+            res = this.evalInChromeSandbox(aString);
+        else
+            res = this.evalInLiberatorSandbox(aString);
+
+        return res;
+    };
+    Scratchpad.evalInLiberatorSandbox = function evalInLiberatorSandbox(aString) {
+        var error, result;
+        try {
+            //result = Cu.evalInSandbox(aString, this.chromeSandbox, "1.8", "Scratchpad", 1);
+            result = liberator.eval(aString, Object.create(modules.userContext));
+        } catch (ex) {
+            error = ex;
+        }
+
+        return [error, result];
+    };
+}
+
+function installAllWindow() {
+    for(w in iter(services.get("windowMediator").getEnumerator("devtools:scratchpad"))) {
+        installLiberatorEnv(w);
+    }
+}
 
 function domEvent1(dom, name, callback, capture) {
     dom.addEventListener(name, function _once(e) {
@@ -83,6 +139,15 @@ function callScratchPad(args, callback) {
                     scanner.keywords = keywords.concat("let");
                 }
             }
+        } else if (args["-v"]) {
+            Scratchpad.setBrowserContext();
+            if (Scratchpad.editor.getMode() == "js") {
+                let scanner = Scratchpad.editor._styler._scanner;
+                let keywords = scanner.keywords;
+                if (keywords.indexOf("let") == -1) {
+                    scanner.keywords = keywords.concat("let");
+                }
+            }
         }
 
         let readOnly = args["-r"];
@@ -90,6 +155,7 @@ function callScratchPad(args, callback) {
         if (Scratchpad.editor.readOnly != readOnly)
             Scratchpad.editor.readOnly = readOnly;
 
+        installLiberatorEnv(win);
         callback.call(Scratchpad, args);
         Scratchpad.editor._undoStack.reset();
     }
@@ -128,6 +194,7 @@ commands.addUserCommand(["scratchpad"], "show Scratchpad", function (args) {
         [["-w", "--window"], commands.OPTION_NOARG],
         [["-t", "--tab"],    commands.OPTION_NOARG],
         [["-c", "--chrome"], commands.OPTION_NOARG],
+        [["-v", "--vimperator"], commands.OPTION_NOARG],
         [["-r", "--read"],   commands.OPTION_NOARG],
         [["-ft", "--filetype"], commands.OPTION_STRING, null, fileType],
     ],
