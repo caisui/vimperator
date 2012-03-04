@@ -1,6 +1,6 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 var INFO = //{{{
-<plugin name="ES.next" version="0.0.1"
+<plugin name="ES.next" version="0.0.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/es.next.js"
         summary="ES.next"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -67,11 +67,19 @@ var INFO = //{{{
         }).toSource();
         return _protoOperator;
     });
+    lazyGetter(this, "_forOfStatement", function () {
+        return (function _forOfStatement(obj){
+            for (var i = 0, j = obj.length; i < j; i++) {
+                yield obj[i];
+            }
+        }).toSource();
+    });
 
     function $q(str) '"' + str + '"'
     function $br(str) '(' + str + ')'
     function $sealed(str) _sealedFunc + "(" + str + ")"
     function $protoOperator(proto, obj) _protoOperator + "(" + proto + "," + obj + ")"
+    function $forOfStatement(enumerable) _forOfStatement + "(" + enumerable + ")"
 
     function compile(expression, context) {
         try {
@@ -100,7 +108,7 @@ var INFO = //{{{
             if (args["--scratchpad"]) {
                 plugins.scratchpad.callScratchPad({}, function () {
                     var notify = this.notificationBox;
-                    
+
                     // xxx: notificationbox 未実装なら勝手に追加
                     if (!notify) {
                         let box = this.editor._iframe.parentNode;
@@ -228,10 +236,14 @@ var INFO = //{{{
     var stack = []; // 括弧付与判定のため
     var post;
     function _compile(stmt, extra) {
+
+        // ArrayHole?
+        if (stmt === null) return "";
         var s = "";
         var s1, s2;
         var ts = "/*" + stmt.type + "*/ ";
         var EOL = ";\n";
+
         stack.push(stmt);
         switch(stmt.type) {
         case "global":
@@ -239,7 +251,10 @@ var INFO = //{{{
             break;
         case "Declaration":
             var ex = {call: function (s) {return s;}};
-            s = _compile(stmt.key, ex) + " = " + ex.call(_compile(stmt.val));
+            if (stmt.val)
+                s = _compile(stmt.key, ex) + " = " + ex.call(_compile(stmt.val));
+            else
+                s = _compile(stmt.key, ex);
             break;
         case "Undefined":
             s = "undefined/*type*/";
@@ -310,10 +325,22 @@ var INFO = //{{{
             s = "do " + _compile(stmt.body) + "while (" + _compile(stmt.cond) + ")";
             break;
         case "ForStatement":
-            // xxx: ";" が つく
+            // xxx: ExpressionNoInopt でなくて ExpressionStatement が来る
             s = "for (" + _compile(stmt.init).replace(/;$/, "")
                 + ";" + _compile(stmt.cond)
                 + ";" + _compile(stmt.next).replace(/;$/, "") + ")\n"
+                + _compile(stmt.body);
+            break;
+        case "ForInStatement":
+            // xxx: LeftHandSideExpression でなくて ExpressionStatement が 来る
+            s = "for (" + _compile(stmt.init).replace(/;$/, "")
+                + " in " + _compile(stmt.enumerable) + ")\n"
+                + _compile(stmt.body);
+            break;
+        case "ForOfStatement":
+            // xxx: LeftHandSideExpression でなくて ExpressionStatement が 来る
+            s = "for (" + _compile(stmt.init).replace(/;$/, "")
+                + " in " + $forOfStatement(_compile(stmt.enumerable)) + ")\n"
                 + _compile(stmt.body);
             break;
         case "SwitchStatement":
@@ -449,6 +476,15 @@ var INFO = //{{{
                 };
             }
             s = "[" + stmt.patterns.map(_compile) + "]";
+            break;
+        case "ArrayComprehension":
+            s = "[" + _compile(stmt.expression) + " " + stmt.comprehensions.map(_compile).join(" ")
+                + (stmt.filter ? " if (" + _compile(stmt.filter) + ")" : "") + "]";
+            break;
+        case "ComprehensionBlock":
+            //xxx: of statement が 未実装のため
+            //s = "for (" + _compile(stmt.left).replace(/;$/, "") + " of " + _compile(stmt.right).replace(/;$/, "") + ")";
+            s = "for (" + _compile(stmt.left).replace(/;$/, "") + " in " + $forOfStatement(_compile(stmt.right)).replace(/;$/, "") + ")";
             break;
         case "Elision":
             s = "";
