@@ -389,6 +389,22 @@ var INFO = //{{{
                 throwStatement(stmt);
             }
             break;
+        case "GeneratorExpression":
+            switch (stmt.kind) {
+            case "DECL":
+            case "EXP":
+                [s1, s2] = compileFunctionParameters(stmt.params);
+                s = "function " + (stmt.name || "") + "(" + s1 + ") {\n";
+                if (s2) s += s2 + ";\n";
+                s += stmt.body.map(_compile).join("\n") + "\n}";
+
+                var pre = stack[stack.length - 2];
+                if (pre && stmt.kind === "EXP" && pre.type === "FuncCall") s = $br(s);
+                break;
+            default:
+                throwStatement(stmt);
+            }
+            break;
         case "LabelledStatement":
             s = _compile(stmt.expr) + ":" + _compile(stmt.body);
             break;
