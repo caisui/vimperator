@@ -1,6 +1,6 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 var INFO = //{{{
-<plugin name="ES.next" version="0.0.2"
+<plugin name="ES.next" version="0.0.3"
         href="http://github.com/caisui/vimperator/blob/master/plugin/es.next.js"
         summary="ES.next"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -291,7 +291,18 @@ var INFO = //{{{
             break;
         case "Assignment":
         case "BinaryExpression":
-            s = _compile(stmt.left) + " " + stmt.op + " " + _compile(stmt.right);
+            var op = stmt.op;
+
+            //xxx: 代替手段がわからない
+            switch (op) {
+            case "is":
+                op = "===";
+                break;
+            case "isnt":
+                op = "!==";
+                break;
+            }
+            s = _compile(stmt.left) + " " + op + " " + _compile(stmt.right);
 
             //括弧付与
             var pre = stack[stack.length -2];
