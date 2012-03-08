@@ -1,6 +1,6 @@
 // vim: set ft=javascript fdm=marker:
 var INFO = //{{{
-<plugin name="scratchpad" version="0.0.3"
+<plugin name="scratchpad" version="0.0.4"
         href="http://github.com/caisui/vimperator/blob/master/plugin/scratchpad.js"
         summary="Scratchpad Command"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -47,14 +47,12 @@ function installLiberatorEnv(win) {
     };
     e.addEventListener("command", Scratchpad.setLiberatorContext.bind(Scratchpad), false);
 
-    const SCRATCHPAD_CONTEXT_CONTENT = 0;
-    const SCRATCHPAD_CONTEXT_BROWSER = 1;
-    const SCRATCHPAD_CONTEXT_LIBERATOR = 2;
+    const SCRATCHPAD_CONTEXT_LIBERATOR = win.SCRATCHPAD_CONTEXT_BROWSER + 1;
     Scratchpad.evalForContext = function (aString) {
         var res;
-        if (this.executionContext === SCRATCHPAD_CONTEXT_CONTENT)
+        if (this.executionContext === win.SCRATCHPAD_CONTEXT_CONTENT)
             res = this.evalInContentSandbox(aString);
-        else if (this.executionContext === SCRATCHPAD_CONTEXT_BROWSER)
+        else if (this.executionContext === win.SCRATCHPAD_CONTEXT_BROWSER)
             res = this.evalInChromeSandbox(aString);
         else
             res = this.evalInLiberatorSandbox(aString);
