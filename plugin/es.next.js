@@ -74,6 +74,22 @@ var INFO = //{{{
             }
         }).toSource();
     });
+    lazyGetter(this, "_ObjectIs", function () {
+        //http://wiki.ecmascript.org/doku.php?id=harmony:egal
+        return <![CDATA[
+            Object.defineProperty(Object, "is", {
+                value: function (x, y) {
+                    if (x === y) {
+                        return x !== 0 || 1 / x == 1 / y;
+                    }
+                    return x !== x && y !== y;
+                },
+                configurable: true,
+                enumerable: false,
+                writable: true
+            });
+        ]]>.toString();
+    });
 
     function $q(str) '"' + str + '"'
     function $br(str) '(' + str + ')'
@@ -103,11 +119,26 @@ var INFO = //{{{
         hereDoc: true,
     };
 
+    function implObjectIs(obj, prop) {
+        var callback = obj.__lookupGetter__(prop);
+        obj.__defineGetter__(prop, function () {
+            var res = callback.call(this);
+            // getter を元に戻す
+            obj.__defineGetter__(prop, callback);
+
+            res.eval(_ObjectIs);
+            return res;
+        });
+    }
+
     let cmd = commands.addUserCommand(["ecmascript", "es"], "Run a ECMAScript  command through eval()", function (args) {
         try {
             if (args["--scratchpad"]) {
                 plugins.scratchpad.callScratchPad({}, function () {
                     var notify = this.notificationBox;
+
+                    implObjectIs(this, "contentSandbox");
+                    implObjectIs(this, "chromeSandbox");
 
                     // xxx: notificationbox 未実装なら勝手に追加
                     if (!notify) {
@@ -293,16 +324,17 @@ var INFO = //{{{
         case "BinaryExpression":
             var op = stmt.op;
 
-            //xxx: 代替手段がわからない
             switch (op) {
             case "is":
-                op = "===";
+                s = "Object.is(" + _compile(stmt.left) + "," + _compile(stmt.right) + ")"
                 break;
             case "isnt":
-                op = "!==";
+                s = "!Object.is(" + _compile(stmt.left) + "," + _compile(stmt.right) + ")"
+                break;
+            default:
+                s = _compile(stmt.left) + " " + op + " " + _compile(stmt.right);
                 break;
             }
-            s = _compile(stmt.left) + " " + op + " " + _compile(stmt.right);
 
             //括弧付与
             var pre = stack[stack.length -2];
