@@ -72,6 +72,14 @@ var INFO = //{{{
                 hints.addSimpleMap("<C-l>", function () {this.relocation(); });
             ]]></code>
         </p>
+        <p>
+            <k name="C-h"/>で入力済み char を 削除(=<k name="BS"/>の動作をmap)
+            <code><![CDATA[
+                hints.addSimpleMap(["<C-h>"], function () {
+                    this.onEvent({liberatorString: "<BS>"});
+                });
+            ]]></code>
+        </p>
     </description>
     </item>
 
