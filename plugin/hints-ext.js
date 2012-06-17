@@ -245,6 +245,7 @@ show: function _show(minor, filter, win) {
     liberator.log(<>hints show: {Date.now() - time}ms</>.toString());
     } catch (ex) {
         Cu.reportError(ex);
+        this._reset();
     }
 },
 _showHints: function () {
