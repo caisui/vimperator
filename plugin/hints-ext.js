@@ -265,10 +265,14 @@ _showHints: function () {
                 kNum = validHints.length;
                 validHints[kNum] = item;
                 //item.hint.firstChild.setAttribute("number", hints._num2chars(kNum + 1));
-                item.hint.style.display = ""
+                var ri, rj = item.rect_list.length;
+                for (ri = 0; ri < rj; ri++)
+                    item.rect_list[ri].style.display = ""
             } else {
                 item.chars = "";
-                item.hint.style.display = "none"
+                var ri, rj = item.rect_list.length;
+                for (ri = 0; ri < rj; ri++)
+                    item.rect_list[ri].style.display = "none"
             }
         }
 
@@ -287,7 +291,10 @@ _showHints: function () {
         for (let i = 0, j = validHints.length; i < j; ++i) {
             let item = validHints[i];
             let show = item.chars.substr(0, len) === num;
-            item.hint.style.display = show ? "" : "none";
+            let style_display = show ? "" : "none";
+            for (var ri = 0, rj = item.rect_list.length; ri < rj; ri++)
+                item.rect_list[ri].style.display = style_display;
+
             let node = item.hint.firstChild;
             if (show) {
                 node.setAttribute("num", num);
@@ -482,20 +489,27 @@ _generate: function _generate(win, screen) {
                 continue;
 
             let style = "top:" + top + "px;left:" + left + "px;width:" + (width) + "px;height:" + (height) + "px;";
+
             let num = pageHints.length;
             let e = baseNode.cloneNode(true);
             e.setAttribute("style", style);
             //e.firstChild.setAttribute("number", this._num2chars(num + 1));
             root.appendChild(e);
 
-            pageHints[num] = {
-                hint: e,
-                elem: value,
-                text: item.text || "",
-                showText: item.showText || false,
-                left: left,
-                top:  top,
-            };
+            if (ri === 0) {
+                pageHints[num] = {
+                    hint: e,
+                    elem: value,
+                    text: item.text || "",
+                    showText: item.showText || false,
+                    left: left,
+                    top:  top,
+                    rect_list: [e],
+                };
+            } else {
+                var rect_list = pageHints[num -1].rect_list;
+                rect_list[rect_list.length] = e;
+            }
         }
     }
 
@@ -658,12 +672,16 @@ onEvent: function onEvent(event) {
     _showActiveHint: function (newId, oldId) {
         let oldElem = this._validHints[oldId - 1];
         if (oldElem) {
-            oldElem.hint.setAttributeNS(NS.uri, "highlight", "HintExtElem");
+            oldElem.rect_list.forEach(function (e) {
+                e.setAttributeNS(NS.uri, "highlight", "HintExtElem");
+            });
         }
 
         let newElem = this._validHints[newId - 1];
         if (newElem) {
-            newElem.hint.setAttributeNS(NS.uri, "highlight", "HintExtElem HintExtActive");
+            newElem.rect_list.forEach(function (e) {
+                e.setAttributeNS(NS.uri, "highlight", "HintExtElem HintExtActive");
+            });
         }
     },
     _isHintNumber: function (key) options.hintchars.indexOf(key) >= 0 || (key in this.simpleMaps),
