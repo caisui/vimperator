@@ -151,6 +151,7 @@ styles.addSheet(true, "HintExtStyle", "*", <><![CDATA[
     z-index:65535!important;
     line-height: 100%!important;
     white-space: nowrap;
+    overflow: visible!important;
 }
 [liberator|highlight~='HintExt']::before {
     content: attr(num);
@@ -461,6 +462,7 @@ _generate: function _generate(win, screen) {
     text-align: left!important;
     margin: 0 !important;
     display: none;
+    overflow: visible;
 </>;
     root.style.display = "none";
 
