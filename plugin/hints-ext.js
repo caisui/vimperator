@@ -454,7 +454,7 @@ _generate: function _generate(win, screen) {
     let root = doc.createElementNS(XHTML, "div");
     root.setAttributeNS(NS, "highlight", "hints");
 
-    root.style.cssText = <>
+    root.style.cssText = String(<>
     z-index: 65535!important;
     position: fixed!important;
     top: 0!important;
@@ -463,7 +463,7 @@ _generate: function _generate(win, screen) {
     margin: 0 !important;
     display: none;
     overflow: visible;
-</>;
+</>);
     root.style.display = "none";
 
     for (let item in obj) {
