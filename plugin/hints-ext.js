@@ -474,9 +474,11 @@ _generate: function _generate(win, screen) {
 </>);
     root.style.display = "none";
 
+    var appended;
     for (let item in obj) {
         let value = item.value;
         let rects = item.rect;
+        appended = false;
         for (let ri = 0, rj = rects.length; ri < rj; ++ri) {
             let rect = rects[ri];
 
@@ -496,7 +498,7 @@ _generate: function _generate(win, screen) {
             //e.firstChild.setAttribute("number", this._num2chars(num + 1));
             root.appendChild(e);
 
-            if (ri === 0) {
+            if (!appended) {
                 pageHints[num] = {
                     hint: e,
                     elem: value,
@@ -506,6 +508,7 @@ _generate: function _generate(win, screen) {
                     top:  top,
                     rect_list: [e],
                 };
+                appended = true;
             } else {
                 var rect_list = pageHints[num -1].rect_list;
                 rect_list[rect_list.length] = e;
