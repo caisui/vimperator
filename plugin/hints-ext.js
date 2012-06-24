@@ -449,17 +449,17 @@ _generate: function _generate(win, screen) {
         var obj = hintMode.generate(win, screen);
         if (obj.toString() === "[object Generator]");
         else if ("length" in obj)
-            obj = (function _arrayLike(a) {for(let i = 0, j = a.length; i < j; i++) yield a[i];})(obj);
+            obj = (function _arrayLike(a) {var i; for(i = 0, j = a.length; i < j; i++) yield a[i];})(obj);
     } else {
         obj = this._iterTags(win, screen);
     }
 
-    let pageHints = this._pageHints;
-    let start = pageHints.length;
-    let baseNode = util.xmlToDom(
+    var pageHints = this._pageHints;
+    var start = pageHints.length;
+    var baseNode = util.xmlToDom(
         <div highlight="HintExtElem"><span highlight="HintExt"/></div>,
         doc);
-    let root = doc.createElementNS(XHTML, "div");
+    var root = doc.createElementNS(XHTML, "div");
     root.setAttributeNS(NS, "highlight", "hints");
 
     root.style.cssText = String(<>
@@ -475,25 +475,28 @@ _generate: function _generate(win, screen) {
     root.style.display = "none";
 
     var appended;
-    for (let item in obj) {
-        let value = item.value;
-        let rects = item.rect;
+    var item, value, rects;
+    var top, left, width, height, rect, num, e, style;
+    var ri, rj;
+    for (item in obj) {
+        value = item.value;
+        rects = item.rect;
         appended = false;
-        for (let ri = 0, rj = rects.length; ri < rj; ++ri) {
-            let rect = rects[ri];
+        for (ri = 0, rj = rects.length; ri < rj; ++ri) {
+            rect = rects[ri];
 
-            let top  = rect.top  > screen.top  ? rect.top  : screen.top;
-            let left = rect.left > screen.left ? rect.left : screen.left;
-            let width  = rect.right  - left;
-            let height = rect.bottom - top;
+            top  = rect.top  > screen.top  ? rect.top  : screen.top;
+            left = rect.left > screen.left ? rect.left : screen.left;
+            width  = rect.right  - left;
+            height = rect.bottom - top;
 
             if ((width < 0) || (height < 0) || (top > screen.bottom) || (left > screen.right))
                 continue;
 
-            let style = "top:" + top + "px;left:" + left + "px;width:" + (width) + "px;height:" + (height) + "px;";
+            style = "top:" + top + "px;left:" + left + "px;width:" + (width) + "px;height:" + (height) + "px;";
 
-            let num = pageHints.length;
-            let e = baseNode.cloneNode(true);
+            num = pageHints.length;
+            e = baseNode.cloneNode(true);
             e.setAttribute("style", style);
             //e.firstChild.setAttribute("number", this._num2chars(num + 1));
             root.appendChild(e);
@@ -516,17 +519,18 @@ _generate: function _generate(win, screen) {
         }
     }
 
-    let body = doc.body || doc.querySelector("body") || doc.documentElement;
+    var body = doc.body || doc.querySelector("body") || doc.documentElement;
     body.appendChild(root);
     this._docs.push({ doc: doc, start: start, end: pageHints.length - 1, root: root });
 
-    let frames = Array.slice(win.frames);
-    for (let i = 0, j = frames.length; i < j; ++i) {
-        let frame = frames[i];
+    var frames = Array.slice(win.frames);
+    var aScreen, frame;
+    for (var i = 0, j = frames.length; i < j; ++i) {
+        frame = frames[i];
 
-        let rect = frame.frameElement.getBoundingClientRect();
+        rect = frame.frameElement.getBoundingClientRect();
         if (rect.top > screen.bottom || rect.left > screen.right) continue;
-        let aScreen = {
+        aScreen = {
             top:  Math.max(0, - rect.top),
             left: Math.max(0, - rect.left),
         };
