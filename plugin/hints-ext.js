@@ -654,7 +654,7 @@ onEvent: function onEvent(event) {
             //this._showHints();
             this._processHints(followFirst);
         }
-	},
+    },
     _removeHints: function (num) {
         if (num) {
             this.setTimeout(function() this._removeHints(), num);
