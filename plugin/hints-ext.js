@@ -223,8 +223,6 @@ show: function _show(minor, filter, win) {
 
     if (!win) win = content.window;
 
-    //gBrowser.selectedBrowser.docShell.isActive = false;
-
     this._generate(win);
 
     // get all keys from the input queue
@@ -241,7 +239,7 @@ show: function _show(minor, filter, win) {
         this._processHints(false);
     else // Ticket #185
         this._checkUnique();
-    //gBrowser.selectedBrowser.docShell.isActive = true;
+
     liberator.log(<>hints show: {Date.now() - time}ms</>.toString());
     } catch (ex) {
         Cu.reportError(ex);
