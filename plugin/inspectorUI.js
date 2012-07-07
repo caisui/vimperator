@@ -195,19 +195,10 @@ var INFO = //{{{
         }, //}}}
     };
 
-    //lazyGetter(this, "ex", function () {
-    lazyFunction(this, "ex", function () {
-        var scope = Object.create(this);
-        scope.commands = commands;
-        var f = liberator.eval(completion.command.toSource(), this);
-        return liberator.eval(liberator.modules.completion.ex.toSource(), {
-            get completion() ({get command() f}),
-            //get commands() commands,
-            commands: commands,
-            Commands: Commands
-        });
-    });
-    //lazyGetter(this, "execute", function () {
+    function ex(context, args) {
+        completion.ex(context, commands._exCommands);
+    }
+
     lazyFunction(this, "execute", function () {
         var scope = Object.create(this);
         scope.commands = commands;
