@@ -52,6 +52,13 @@ var INFO = //{{{
     </item>
 
     <item>
+    <spec>:let use_hints_ext_tranform=1</spec>
+    <description>
+        css transform を 考慮して表示します。
+    </description>
+    </item>
+
+    <item>
     <spec>:js hints.addSimpleMap(<a>key</a>, <a>callback</a>)</spec>
     <description>
         Hints に 1キーストーロクのmapを割り当てします。
@@ -226,9 +233,16 @@ show: function _show(minor, filter, win) {
     this._generate(win);
 
     // get all keys from the input queue
-    liberator.threadYield(true);
+    var tab = gBrowser.selectedTab;
+    var limit = Date.now() + 1 * 1000;
+    while (tab.hasAttribute("busy") && Date.now() < limit)
+        liberator.threadYield(false);
 
     this._canUpdate = true;
+
+    if (liberator.globalVariables.use_hints_ext_tranform)
+        this.relocation_transform();
+
     this._showHints();
 
     if (this._validHints.length == 0) {
@@ -265,19 +279,21 @@ _showHints: function () {
                 //item.hint.firstChild.setAttribute("number", hints._num2chars(kNum + 1));
                 var ri, rj = item.rect_list.length;
                 for (ri = 0; ri < rj; ri++)
-                    item.rect_list[ri].style.display = ""
+                    item.rect_list[ri].style.display = "";
+                item.label.style.display = "";
             } else {
                 item.chars = "";
                 var ri, rj = item.rect_list.length;
                 for (ri = 0; ri < rj; ri++)
                     item.rect_list[ri].style.display = "none"
+                item.label.style.display = "none";
             }
         }
 
         for (let i = 0, j = validHints.length; i < j; ++i) {
             let item = validHints[i];
             item.chars = item.showText ? hints._num2chars(i + 1, j) + ":" + item.text : hints._num2chars(i + 1, j);
-            let node = item.hint.firstChild;
+            let node = item.label;
             node.removeAttribute("num");
             node.textContent = item.chars;
         }
@@ -290,10 +306,11 @@ _showHints: function () {
             let item = validHints[i];
             let show = item.chars.substr(0, len) === num;
             let style_display = show ? "" : "none";
+            item.label.style.display = style_display;
             for (var ri = 0, rj = item.rect_list.length; ri < rj; ri++)
                 item.rect_list[ri].style.display = style_display;
 
-            let node = item.hint.firstChild;
+            let node = item.label;
             if (show) {
                 node.setAttribute("num", num);
                 node.textContent = item.chars.substr(len);
@@ -502,6 +519,7 @@ _generate: function _generate(win, screen) {
             if (!appended) {
                 pageHints[num] = {
                     hint: e,
+                    label: e.firstChild,
                     elem: value,
                     text: item.text || "",
                     showText: item.showText || false,
@@ -708,7 +726,7 @@ onEvent: function onEvent(event) {
         self._docs.forEach(function (root) {
             const doc = root.doc;
             const win = doc.defaultView;
-            const size = parseFloat(win.getComputedStyle(self._pageHints[root.start].hint.firstChild, null).fontSize) + 2;
+            const size = parseFloat(win.getComputedStyle(self._pageHints[root.start].label, null).fontSize) + 2;
             const lines = [];
 
             for (let i = root.start, j = root.end; i <= j; i++) {
@@ -740,7 +758,7 @@ onEvent: function onEvent(event) {
 
                 let left = 0;
                 line.forEach(function (item) {
-                    let elem = item.hint.firstChild;
+                    let elem = item.label;
                     let w1 = elem.getBoundingClientRect().width;
                     let w2 = item.left - left;
                     if (w1 > w2) {
@@ -753,6 +771,150 @@ onEvent: function onEvent(event) {
             });
         });
         liberator.log(<>relocation:{Date.now() - time} ms</>.toString());
+    },
+    relocation_transform: function relocation_transform() {
+        if (this._pageHints.transform) return;
+
+        var tick = Date.now();
+        const self = this;
+        const pageHints = self._pageHints;
+        if (pageHints[0].elem instanceof Node) aMode = 0;
+        else if (pageHints[0].elem[0] instanceof Text) aMode = 1;
+        else {
+            Cu.reportError("do not support type");
+            return;
+        }
+        const mode = aMode;
+        const isTrans = "transform" in CSSStyleDeclaration.prototype;
+        const _Moz_ = isTrans ? "" : "-moz-";
+        const Moz = isTrans ? "" : "Moz";
+        const [transform, transformOrigin, transformStyle] = isTrans
+            ? ["transform", "transformOrigin", "transformStyle"]
+            : ["MozTransform", "MozTransformOrigin", "MozTransformStyle"]
+        self._docs.forEach(function (root) {
+            const doc = root.doc;
+            const win = doc.defaultView;
+            const wm = new WeakMap;
+            const rootElement = root.root;
+            const body = rootElement.parentNode;
+            var fragment = doc.createDocumentFragment();
+            if (mode === 1) var fragment_label = doc.createDocumentFragment();
+
+            body.removeChild(rootElement);
+            var offset_list = [];
+
+            var range = doc.createRange();
+            function getOffsetPosition(node) {
+                var left = node.offsetLeft;
+                var top = node.offsetTop;
+                var parent = node.parentNode;
+
+                if (parent) return ({left: left, top: top});
+                var res = getOffsetPosition(parent);
+                res.top += top;
+                res.left += left;
+                return res;
+            }
+
+            for (let i = root.start, j = root.end; i <= j; i++) {
+                var item = pageHints[i];
+
+                var parent = mode === 0 ? item.elem : item.elem[0].parentNode;
+                var prev = null, base = null, count = 0, node1;
+                node1 = parent;
+                while (parent) {
+                    var node = wm.get(parent);
+                    if (node) {
+                        if (!base) base = node;
+                        if (prev) node.appendChild(prev);
+                        break;
+                    }
+
+                    node = doc.createElement("div");
+                    var s = win.getComputedStyle(parent, null);
+
+                    if (s[transform] !== "none") node.setAttribute("trans", true);
+
+                    node.style.cssText = ""+<>
+                        position: absolute!important;
+                        {_Moz_}transform: {s[transform]}!important;
+                        {_Moz_}transform-origin: {s[transformOrigin]}!important;
+                        {_Moz_}transform-style: {s[transformStyle]}!important;
+                        top:       {parent.offsetTop}px!important;
+                        left:      {parent.offsetLeft}px!important;
+                        height:    {parent.offsetHeight}px!important;
+                        width:     {parent.offsetWidth}px!important;
+                    </>;
+                    node.setAttributeNS(NS, "highlight", "hints");
+                    if (prev) node.appendChild(prev);
+                    else base = node;
+
+                    wm.set(parent, node);
+
+                    prev = node;
+                    parent = parent.offsetParent;
+                }
+                if (!node.parentNode)
+                    fragment.appendChild(node);
+
+                if (!base.mozMatchesSelector("[trans], [trans] *")) continue;
+                node = item.hint;
+
+                range.selectNode(node1);
+                var rect = range.getBoundingClientRect();
+                var label = item.label;
+                if (mode === 0) {
+                    var rect_list = item.rect_list;
+                    var rects = range.getClientRects();
+                    for (var ri = 0, rj = rect_list.length; ri < rj; ri++) {
+                        node = rect_list[ri];
+                        rect = rects[ri];
+                        node.style.cssText = ""+<>
+                            top:        {rect.top - rects[0].top}px;
+                            left:       {rect.left - rects[0].left}px;
+                            width:      {rect.width}px;
+                            height:     {rect.height}px;
+                        </>;
+                        base.appendChild(node);
+                    }
+                    label.style.cssText = ""+<>
+                        top:  {item.top}px;
+                        left: {item.left}px;
+                    </>;
+                    rootElement.appendChild(label);
+                } else if (mode === 1) {
+                    // caret(visible) mode
+                    node.style.cssText = ""+<>
+                        top:        {item.top  - rect.top}px;
+                        left:       {item.left - rect.left}px;
+                        width:      {node.style.width};
+                        height:     {node.style.height};
+                    </>;
+                    base.appendChild(node);
+                    fragment_label.appendChild(label);
+                    item.label = label;
+                }
+            }
+
+            body.appendChild(rootElement);
+            body.appendChild(fragment);
+
+            if (fragment_label) {
+                for (let i = root.start, j = root.end; i <= j; i++) {
+                    var item = pageHints[i];
+                    if (!item.label) continue;
+                    rect = item.hint.getBoundingClientRect();
+                    item.label.style.cssText = ""+<>
+                        top: {rect.top > 0 ? rect.top : 0}px;
+                        left: {rect.left > 0 ? rect.left: 0}px;
+                    </>;
+                }
+                rootElement.appendChild(fragment_label);
+            }
+            range.detach();
+        });
+        liberator.log("transform relocation: " + (Date.now() - tick) + "ms");
+        this._pageHints.transform = true;
     },
     addModeEx: function (mode, prompt, action, generate) {
         let hintMode = Hints.Mode(prompt, action);
@@ -988,4 +1150,5 @@ case 2: {
     };
 }break;
 }
+hints.addSimpleMap(["<C-t>"], function () hints.relocation_transform());
 }).call(this);
