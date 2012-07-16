@@ -935,7 +935,7 @@ let src = Hints.prototype._processHints.toSource()
 
 HintsExt.prototype._processHints = liberator.eval("(function() " + src + ")()");
 
-["_num2chars", "_chars2num", "_checkUnique", "_onInput", "_hintMatcher", "_isHintNumber1", "hide", "setTimeout", "addMode", "_updateStatusline", "_getInputHint"]
+["_num2chars", "_chars2num", "_checkUnique", "_onInput", "_hintMatcher", "_isHintNumber1", "hide", "setTimeout", "addMode", "_updateStatusline", "_getInputHint", "startExtendedHint"]
 .forEach(function (a) HintsExt.prototype[a] = Hints.prototype[a]);
 
 ////input[not(@type='hidden')] | //xhtml:input[not(@type='hidden')] | //a | //xhtml:a | //area | //xhtml:area | //iframe | //xhtml:iframe | //textarea | //xhtml:textarea | //button | //xhtml:button | //select | //xhtml:select | //*[@onclick or @onmouseover or @onmousedown or @onmouseup or @oncommand or @role='link']
