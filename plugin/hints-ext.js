@@ -233,10 +233,7 @@ show: function _show(minor, filter, win) {
     this._generate(win);
 
     // get all keys from the input queue
-    var tab = gBrowser.selectedTab;
-    var limit = Date.now() + 1 * 1000;
-    while (tab.hasAttribute("busy") && Date.now() < limit)
-        liberator.threadYield(false);
+    liberator.threadYield(false);
 
     this._canUpdate = true;
 
@@ -1150,5 +1147,4 @@ case 2: {
     };
 }break;
 }
-hints.addSimpleMap(["<C-t>"], function () hints.relocation_transform());
 }).call(this);
