@@ -1,6 +1,6 @@
 // vim: set sw=4 ts=4 et :
 var INFO = //{{{
-<plugin name="profile-javascript" version="0.0.2"
+xml`<plugin name="profile-javascript" version="0.0.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/profile-js.js"
         summary="profile javascript"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -13,7 +13,7 @@ var INFO = //{{{
             <p>実行したjavascript の profile 結果を 表示</p>
         </description>
     </item>
-</plugin>;
+</plugin>`;
 //}}}
 let jsd = services.get("debugger");
 
@@ -41,7 +41,7 @@ function print() {
 
     list.sort(function (a, b) b.totalOwnExecutionTime - a.totalOwnExecutionTime);
 
-    style = <style><![CDATA[
+    style = xml`<style><![CDATA[
         tr {
             border-bottom: 1px solid gray;
             background-color: white;
@@ -75,8 +75,8 @@ function print() {
         .a a {
             color: blue;
         }
-    ]]></style>;
-    head = <thead><tr class="h">
+    ]]></style>`;
+    head = xml`<thead><tr class="h">
         <th>functionName         </th>
         <th>callCount            </th>
         <th>maxOwnExecutionTime  </th>
@@ -84,35 +84,33 @@ function print() {
         <th>totalOwnExecutionTime</th>
         <th>totalExecutionTime   </th>
         <th colspan="0">inf</th>
-    </tr></thead>;
+    </tr></thead>`;
     function f(v) {
         v = v.toFixed(2);
         while (v !== (v = v.replace(/^(\d+)(\d{3})/, "$1,$2")));
         return v;
     }
-    let body = <></>;
-    for(let [,script] in Iterator(list))
-        body += <tr>
-            <td>{script.functionName}</td>
-            <td align="right">{script.callCount}</td>
-            <td align="right">{f(script.maxOwnExecutionTime)}</td>
-            <td align="right">{f(script.totalOwnExecutionTime/script.callCount)}</td>
-            <td align="right">{f(script.totalOwnExecutionTime)}</td>
-            <td align="right">{f(script.totalExecutionTime)}</td>
-            <td><a href={script.fileName}>*</a></td>
+    let body = template.map(list, function (script) xml`<tr>
+            <td>${script.functionName}</td>
+            <td align="right">${script.callCount}</td>
+            <td align="right">${f(script.maxOwnExecutionTime)}</td>
+            <td align="right">${f(script.totalOwnExecutionTime/script.callCount)}</td>
+            <td align="right">${f(script.totalOwnExecutionTime)}</td>
+            <td align="right">${f(script.totalExecutionTime)}</td>
+            <td><a href=${script.fileName}>*</a></td>
             <td class="a">#<div class="i">
-            <span><a href={script.fileName}>{script.fileName}</a>:{script.line}</span>
-            <pre>{script.functionSource}</pre>
+            <span><a href=${script.fileName}>${script.fileName}</a>:${script.line}</span>
+            <pre>${script.functionSource}</pre>
             </div></td>
-        </tr>;
+        </tr>`);
 
-    let xml = style + <tablel>{head}<tbody>{body}</tbody></tablel>;
+    let src = style + xml`<tablel>${head}<tbody>${body}</tbody></tablel>`;
     var doc = commandline._multilineOutputWidget.contentDocument;
     doc.body.innerHTML = "";
     var r = doc.createRange();
     r.selectNode(doc.body);
     //doc.body.insertAdjacentHTML("afterbegin", xml.toXMLString());
-    doc.body.appendChild(r.createContextualFragment(xml.toXMLString()));
+    doc.body.appendChild(r.createContextualFragment(src.toString()));
     commandline.updateOutputHeight(true);
     modes.set(modes.COMMAND_LINE, modes.OUTPUT_MULTILINE);
 }
