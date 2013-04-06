@@ -1,6 +1,6 @@
 // vim: set ft=javascript fdm=marker:
 var INFO = //{{{
-<plugin name="scratchpad" version="0.0.4"
+xml`<plugin name="scratchpad" version="0.0.4"
         href="http://github.com/caisui/vimperator/blob/master/plugin/scratchpad.js"
         summary="Scratchpad Command"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -13,7 +13,7 @@ var INFO = //{{{
             Scratchpad を 開きます。
         </description>
     </item>
-</plugin>;
+</plugin>`;
 //}}}
 
 var fileType = [
@@ -100,13 +100,13 @@ function tabopen(callback) {
 
             //xxx: document.write(xx) -> document.documentElement.innerHTML = xx;
             var _init = TextView.prototype._init.toString()
-            .replace(<![CDATA[html.push("<!DOCTYPE html>");]]>.toString()  , '')
-            .replace(<![CDATA[html.push("<html>");]]>.toString()           , '')
-            .replace(<![CDATA[html.push("</html>");]]>.toString()          , '')
-            .replace(<![CDATA[document.open();]]>.toString()               , '')
-            .replace(<![CDATA[document.write(html.join(""));]]>.toString() , '')
-            .replace(<![CDATA[document.close();]]>.toString(),
-                <![CDATA[document.documentElement.innerHTML = html.join("");]]>.toString());
+            .replace(`html.push("<!DOCTYPE html>");`  , '')
+            .replace(`html.push("<html>");`           , '')
+            .replace(`html.push("</html>");`          , '')
+            .replace(`document.open();`               , '')
+            .replace(`document.write(html.join(""));` , '')
+            .replace(`document.close();`,
+                `document.documentElement.innerHTML = html.join("");`);
 
             //xxx: compatMode 変更方法が分からないので
             var src = TextView.prototype._getFrameHeight.toString().replace("documentElement", "body");
