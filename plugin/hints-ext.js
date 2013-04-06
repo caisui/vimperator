@@ -1,7 +1,7 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 //"use strict";
 var INFO = //{{{
-<plugin name="hints-ext" version="0.0.3"
+xml`<plugin name="hints-ext" version="0.0.3"
         href="http://github.com/caisui/vimperator/blob/master/plugin/hints-ext.js"
         summary="Hints Ext"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -114,7 +114,7 @@ var INFO = //{{{
         </p>
     </description>
     </item>
-</plugin>;
+</plugin>`;
 //}}}
 
 (function () {
@@ -133,7 +133,7 @@ function HintsExt() {
 function getUtils(win) win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils)
 
 if (!highlight.get("HintExtElem")) {
-highlight.loadCSS(<![CDATA[
+highlight.loadCSS(`
     HintExtElem,,*  {
         border: 1px solid rgba(128,128,128,.5);
         -moz-border-radius: 2px;
@@ -146,9 +146,9 @@ highlight.loadCSS(<![CDATA[
 HintExtActive,,*  {background-color: rgba(128,255,128,.3);}
 HintExtActive>*,,*  {background-color: blue;}
 HintExt::before,,* { /* no style */ }
-]]>.toString());
+`);
 
-styles.addSheet(true, "HintExtStyle", "*", <><![CDATA[
+styles.addSheet(true, "HintExtStyle", "*", `
 [liberator|highlight~='HintExtElem'] {
     position: absolute!important;
     margin: 0!important;
@@ -163,7 +163,7 @@ styles.addSheet(true, "HintExtStyle", "*", <><![CDATA[
 [liberator|highlight~='HintExt']::before {
     content: attr(num);
 }
-]]></>.toString(), true);
+`, true);
 }
 
 HintsExt.prototype = {
@@ -251,7 +251,7 @@ show: function _show(minor, filter, win) {
     else // Ticket #185
         this._checkUnique();
 
-    liberator.log(<>hints show: {Date.now() - time}ms</>.toString());
+    liberator.log(`hints show: ${Date.now() - time}ms`);
     } catch (ex) {
         Cu.reportError(ex);
         this._reset();
@@ -469,12 +469,12 @@ _generate: function _generate(win, screen) {
     var pageHints = this._pageHints;
     var start = pageHints.length;
     var baseNode = util.xmlToDom(
-        <div highlight="HintExtElem"><span highlight="HintExt"/></div>,
+        xml`<div highlight="HintExtElem"><span highlight="HintExt"/></div>`,
         doc);
     var root = doc.createElementNS(XHTML, "div");
     root.setAttributeNS(NS, "highlight", "hints");
 
-    root.style.cssText = String(<>
+    root.style.cssText = `
     z-index: 65535!important;
     position: fixed!important;
     top: 0!important;
@@ -483,7 +483,7 @@ _generate: function _generate(win, screen) {
     margin: 0 !important;
     display: none;
     overflow: visible;
-</>);
+`;
     root.style.display = "none";
 
     var appended;
@@ -767,7 +767,7 @@ onEvent: function onEvent(event) {
                 });
             });
         });
-        liberator.log(<>relocation:{Date.now() - time} ms</>.toString());
+        liberator.log(`relocation: ${Date.now() - time}ms`);
     },
     relocation_transform: function relocation_transform() {
         if (this._pageHints.transform) return;
@@ -832,16 +832,16 @@ onEvent: function onEvent(event) {
 
                     if (s[transform] !== "none") node.setAttribute("trans", true);
 
-                    node.style.cssText = ""+<>
+                    node.style.cssText = `
                         position: absolute!important;
-                        {_Moz_}transform: {s[transform]}!important;
-                        {_Moz_}transform-origin: {s[transformOrigin]}!important;
-                        {_Moz_}transform-style: {s[transformStyle]}!important;
-                        top:       {parent.offsetTop}px!important;
-                        left:      {parent.offsetLeft}px!important;
-                        height:    {parent.offsetHeight}px!important;
-                        width:     {parent.offsetWidth}px!important;
-                    </>;
+                        ${_Moz_}transform: ${s[transform]}!important;
+                        ${_Moz_}transform-origin: ${s[transformOrigin]}!important;
+                        ${_Moz_}transform-style:  ${s[transformStyle]}!important;
+                        top:       ${parent.offsetTop}px!important;
+                        left:      ${parent.offsetLeft}px!important;
+                        height:    ${parent.offsetHeight}px!important;
+                        width:     ${parent.offsetWidth}px!important;
+                    `;
                     node.setAttributeNS(NS, "highlight", "hints");
                     if (prev) node.appendChild(prev);
                     else base = node;
@@ -866,27 +866,27 @@ onEvent: function onEvent(event) {
                     for (var ri = 0, rj = rect_list.length; ri < rj; ri++) {
                         node = rect_list[ri];
                         rect = rects[ri];
-                        node.style.cssText = ""+<>
-                            top:        {rect.top - rects[0].top}px;
-                            left:       {rect.left - rects[0].left}px;
-                            width:      {rect.width}px;
-                            height:     {rect.height}px;
-                        </>;
+                        node.style.cssText = `
+                            top:        ${rect.top - rects[0].top}px;
+                            left:       ${rect.left - rects[0].left}px;
+                            width:      ${rect.width}px;
+                            height:     ${rect.height}px;
+                        `;
                         base.appendChild(node);
                     }
-                    label.style.cssText = ""+<>
-                        top:  {item.top}px;
-                        left: {item.left}px;
-                    </>;
+                    label.style.cssText = `
+                        top:  ${item.top}px;
+                        left: ${item.left}px;
+                    `;
                     rootElement.appendChild(label);
                 } else if (mode === 1) {
                     // caret(visible) mode
-                    node.style.cssText = ""+<>
-                        top:        {item.top  - rect.top}px;
-                        left:       {item.left - rect.left}px;
-                        width:      {node.style.width};
-                        height:     {node.style.height};
-                    </>;
+                    node.style.cssText = `
+                        top:        ${item.top  - rect.top}px;
+                        left:       ${item.left - rect.left}px;
+                        width:      ${node.style.width};
+                        height:     ${node.style.height};
+                    `;
                     base.appendChild(node);
                     fragment_label.appendChild(label);
                     item.label = label;
@@ -901,16 +901,16 @@ onEvent: function onEvent(event) {
                     var item = pageHints[i];
                     if (!item.label) continue;
                     rect = item.hint.getBoundingClientRect();
-                    item.label.style.cssText = ""+<>
-                        top: {rect.top > 0 ? rect.top : 0}px;
-                        left: {rect.left > 0 ? rect.left: 0}px;
-                    </>;
+                    item.label.style.cssText = `
+                        top:    ${rect.top > 0 ? rect.top : 0}px;
+                        left:   ${rect.left > 0 ? rect.left: 0}px;
+                    `;
                 }
                 rootElement.appendChild(fragment_label);
             }
             range.detach();
         });
-        liberator.log("transform relocation: " + (Date.now() - tick) + "ms");
+        liberator.log(`transform relocation: ${Date.now() - tick}ms`);
         this._pageHints.transform = true;
     },
     addModeEx: function (mode, prompt, action, generate) {
