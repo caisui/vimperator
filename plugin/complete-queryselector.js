@@ -1,6 +1,6 @@
 // vim: set sw=4 ts=4 et :
 var INFO = //{{{
-<plugin name="complete-queryselector" version="0.0.2"
+xml`<plugin name="complete-queryselector" version="0.0.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/complete-queryselector.js"
         summary="complete queryselector"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -20,7 +20,7 @@ var INFO = //{{{
             ]]></code>
         </description>
     </item>
-</plugin>;
+</plugin>`;
 //}}}
 
 JavaScript.completers["querySelector"] = javascriptCompleterQuerySelector;
