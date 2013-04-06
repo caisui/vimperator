@@ -1,6 +1,6 @@
 // vim:set sw=4 ts=4 fdm=marker:
 var INFO = //{{{
-<plugin name="reload-image" version="0.0.1"
+xml`<plugin name="reload-image" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/reload-image.js"
         summary="reload image"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -38,7 +38,7 @@ var INFO = //{{{
             タイムアウト時のリトライ回数を設定
         </description>
     </item>
-</plugin>
+</plugin>`
 ; //}}}
 (function () {
     const ios = services.get("io");
@@ -85,15 +85,15 @@ var INFO = //{{{
         offset: 0,
         retry: 0,
 
-        get message() <tr>
+        get message() xml`<tr>
             <td>
-            {this.retry && this.limitRetryCount ? <>[{this.retry}/{this.limitRetryCount}]</> : ""}
+            ${this.retry && this.limitRetryCount ? `[${this.retry}/${this.limitRetryCount}]` : ""}
             </td>
-            <td>{this.status} [{this.text}]</td>
-            <td>{this.type}</td>
-            <td>({toByte(this.offset)} / {toByte(this.length)})</td>
-            <td><a href={this.src}>{this.src}</a></td>
-        </tr>,
+            <td>${this.status} [${this.text}]</td>
+            <td>${this.type}</td>
+            <td>(${toByte(this.offset)} / ${toByte(this.length)})</td>
+            <td><a href=${this.src}>${this.src}</a></td>
+        </tr>`,
         update: function (aRequest, offset) {
             aRequest instanceof Ci.nsIHttpChannel;
             this.type   = aRequest.contentType;
@@ -103,7 +103,7 @@ var INFO = //{{{
             this.offset = offset;
         },
         cancel: function (msg) {
-            this.text = <>cancel: {msg}</>.toString();
+            this.text = `cancel: ${msg}`;
         }
     };
 
@@ -208,12 +208,10 @@ var INFO = //{{{
         if (args.status) {
             let (list = content.document.reloadImageCache) {
                 if (list && list.length) {
-                        let xml = <table><tbody/></table>;
-                        for ([, inf] in Iterator(content.document.reloadImageCache)) {
-                            xml.tbody += inf.message;
-                        }
-                        liberator.echo(xml);
-                    }
+                    liberator.echo(xml`<table><tbody>${
+                            template.map(list, function (inf) inf.message)
+                        }</tbody></table>`);
+                }
                 else liberator.echo("no reload images");
             }
         }
@@ -225,7 +223,7 @@ var INFO = //{{{
                     reloadImage(img, gBrowser.selectedBrowser.webNavigation.loadGroup)
                 );
             }
-            liberator.echo(<>{list.length} images reloading...</>.toString());
+            liberator.echo(`${list.length} images reloading...`);
             content.document.reloadImageCache = list;
         }
     }, {
