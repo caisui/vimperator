@@ -1,6 +1,6 @@
 // vim: set sw=4 ts=4 fdm=marker et :
 var INFO = //{{{
-<plugin name="coffee-script" version="0.0.1"
+xml`<plugin name="coffee-script" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/coffee-script.js"
         summary="CoffeeScript"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -12,12 +12,12 @@ var INFO = //{{{
             let's coffee
 
             <note>
-                <link xmlns={XHTML} target="_blank" href="https://github.com/jashkenas/coffee-script">jashkenas/coffee-script - GitHub</link>
+                <link xmlns=${XHTML} target="_blank" href="https://github.com/jashkenas/coffee-script">jashkenas/coffee-script - GitHub</link>
                 の extra/coffee-script.js が必要です。
             </note>
         </description>
     </item>
-</plugin>;
+</plugin>`;
 //}}}
 
 var defaultPath = "~/vimperator/coffee-script.js";
@@ -69,7 +69,7 @@ completion.setFunctionCompleter([loadFile], [completion.file]);
                 bare: args["--bare"],
             };
             if (args["--test"])
-                liberator.echo(<pre>{compile(expression, options)}</pre>);
+                liberator.echo(xml`<pre>${compile(expression, options)}</pre>`);
             else if (args["--echo"])
                 execute("liberator.echo (CommandLine.echoArgumentToString (" + expression + "), true)", userContext, options);
             else
@@ -91,10 +91,10 @@ dispose.__defineSetter__("$push", function (v) this.push(v));
     };
 
     let src = "else if (/\\.css$/.test(filename)) {";
-    patch(io, "source", function (s) s.replace(src, <![CDATA[
+    patch(io, "source", function (s) s.replace(src, `
         else if (/\.coffee$/.test(filename)) {
             plugins.coffeeScript.loadScript(uri.spec, Script(file));
-        }]]> + src));
+        ` + src));
 
     patch(liberator, "loadPlugins", function (s) s
         .replace("js|vimp", "js|vimp|coffee")
