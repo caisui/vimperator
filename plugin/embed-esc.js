@@ -10,7 +10,7 @@ xml`<plugin name="embed-esc" version="0.0.3"
     <item>
         <description>
             <p>
-                modes.EMBED から ${"<Esc>"}<key name="Esc"/> で modes.NORMAL に 戻れるっぽくします。
+                modes.EMBED から ${"<Esc>"}<key name=${"<Esc>"}/> で modes.NORMAL に 戻れるっぽくします。
             </p>
         </description>
     </item>
