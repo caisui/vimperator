@@ -24,7 +24,7 @@ var defaultPath = "~/vimperator/coffee-script.js";
 
 this.__defineGetter__("CoffeeScript", function () {
     delete this.CoffeeScript;
-    services.get("subscriptLoader").loadSubScript(
+    services.get("scriptloader").loadSubScript(
         services.get("io").newFileURI(File(liberator.globalVariables.coffeescript || defaultPath)).spec,
         this);
     return this.CoffeeScript;
