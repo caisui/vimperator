@@ -1,7 +1,7 @@
 // vim: set fdm=marker:
 if (parseFloat(Application.version) >= 4) {
     var INFO = //{{{
-<plugin name="word-completer" version="0.0.1"
+xml`<plugin name="word-completer" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/word-completer.js"
         summary="word completer"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -44,7 +44,7 @@ if (parseFloat(Application.version) >= 4) {
             ]]></code>
         </description>
     </item>
-</plugin>;
+</plugin>`;
 //}}}
 
     let lazyGetter = function (obj, name, callback) {
@@ -55,7 +55,7 @@ if (parseFloat(Application.version) >= 4) {
     };
     lazyGetter(this, "kanji", function () {
         // http://ja.wikipedia.org/wiki/UNICODE#.E4.B8.80.E8.A6.A7
-        var code = <![CDATA[
+        var code = `
             U+2E80-2EFF
             -U+3000-303F #CJKの記号及び句読点
             U+31C0-31EF
@@ -69,10 +69,10 @@ if (parseFloat(Application.version) >= 4) {
             U+2A700-2B73F
             U+2B740-2B81F
             U+2F800-2FA1F
-        ]]>.toString();
+        `;
         var res = "[", match, re = /\sU\+([0-9A-F]+)-([0-9A-F]+)/g;
         while (match = re.exec(code)) {
-            res += <>\u{match[1]}-\u{match[2]}</>.toString();
+            res += `\u${match[1]}-\u${match[2]}`;
         }
         res += "]{2,}";
         delete this.kanji;
@@ -83,10 +83,10 @@ if (parseFloat(Application.version) >= 4) {
         if (name in liberator.globalVariables) return liberator.globalVariables[name];
 
         return "(" + [
-            <>(?:ht|t|f)tps?://[-a-zA-Z0-9%/.]+(?:\?.+)?</>, // url
-            <>\d+/\d+/\d+</>,
-            <![CDATA[[-a-zA-Z_0-9.]+[-a-zA-Z_0-9]]]>, // alphabet
-            <![CDATA[[\u30a0-\u30ff]{2,}]]>, //カタカナ
+            `(?:ht|t|f)tps?://[-a-zA-Z0-9%/.]+(?:\?.+)?`, // url
+            `\d+/\d+/\d+`,
+            `[-a-zA-Z_0-9.]+[-a-zA-Z_0-9]`, // alphabet
+            `[\u30a0-\u30ff]{2,}`, //カタカナ
             kanji,
         ].join("|") + ")";
     });
