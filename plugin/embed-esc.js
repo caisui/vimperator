@@ -1,6 +1,6 @@
 // vim:set sw=4 ts=4 fdm=marker:
 var INFO = //{{{
-<plugin name="embed-esc" version="0.0.3"
+xml`<plugin name="embed-esc" version="0.0.3"
         href="http://github.com/caisui/vimperator/blob/master/plugin/embed-esc.js"
         summary="Embed Esc"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -10,7 +10,7 @@ var INFO = //{{{
     <item>
         <description>
             <p>
-                modes.EMBED から {"<Esc>"}<key name="<Esc>"/> で modes.NORMAL に 戻れるっぽくします。
+                modes.EMBED から ${"<Esc>"}<key name="Esc"/> で modes.NORMAL に 戻れるっぽくします。
             </p>
         </description>
     </item>
@@ -43,7 +43,7 @@ var INFO = //{{{
            <warning>Firefox 3.6x は常にtrue 扱い </warning>
         </description>
     </item>
-</plugin>; //}}}
+</plugin>`; //}}}
 (function () {
     let scope = {};
     Cu.import("resource://gre/modules/ctypes.jsm", scope);
