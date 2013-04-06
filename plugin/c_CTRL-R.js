@@ -1,6 +1,6 @@
 // vim: set fdm=marker  et ts=4 sw=4:
 var INFO =
-<plugin name="Register" version="0.0.1"
+xml`<plugin name="Register" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/c_CTRL-R.js"
         summary="Register"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -9,7 +9,7 @@ var INFO =
     <project name="Vimperator" />
     <item>
         <description>
-          <tags> c_{"<"}C-r{">"} i_{"<"}C-r{">"} </tags>
+          <tags> c_${"<"}C-r${">"} i_${"<"}C-r${">"} </tags>
             vim のレジスタのようなもの
 
             <dl>
@@ -18,9 +18,9 @@ var INFO =
               <dt>*</dt>            <dd tag="<C-r>*">クリップボードの内容</dd>
               <dt>:</dt>            <dd tag="<C-r>:">最後のコマンド</dd>
               <dt>/</dt>            <dd tag="<C-r>/">最後の検索ワード</dd>
-              <dt>{"<"}C-w{">"}</dt><dd tag="<C-r><C-w>">選択範囲の内容</dd>
+              <dt>${"<"}C-w${">"}</dt><dd tag="<C-r><C-w>">選択範囲の内容</dd>
               <dt>=</dt>            <dd tag="<C-r>=">javascript の 実行結果</dd>
-              <dt>{"<"}Tab{">"}</dt><dd tag="<C-r><Tab>">補完機能</dd>
+              <dt>${"<"}Tab${">"}</dt><dd tag="<C-r><Tab>">補完機能</dd>
               <dt>h</dt>            <dd tag="<C-r>h">host名</dd>
               <dt>d</dt>            <dd tag="<C-r>d">%Y/%m/%d</dd>
               <dt>t</dt>            <dd tag="<C-r>t">%H:%M</dd>
@@ -43,7 +43,7 @@ var INFO =
             </dl>
         </description>
     </item>
-</plugin>;
+</plugin>`;
 
 (function (self) {
     //const key = self.PATH.toLowerCase();
@@ -91,7 +91,7 @@ var INFO =
                 if (isLower || isUpper) {
                     if(isUpper) arg = arg.toLowerCase();
                     if (typeof(map[arg]) == "function") {
-                        liberator.echoerr(new Error(<>{arg} is funtion reserbed.</>));
+                        liberator.echoerr(new Error(`${arg} is funtion reserbed.`));
                         return;
                     }
                     let sel;
@@ -167,15 +167,15 @@ var INFO =
     //{{{ hack paste action
     const src = "clipboardHelper.copyString(str);";
 
-    var code = conf.copyToClipboard.toSource().replace(src, src + <>
-    try{"{"}
-    modules.userContext["{key}"].reg.swap10(str);
-    {"}"}catch(ex){"{"}
-        liberator.echoerr(ex);
-    {"}"}
-    </>);
+    var code = conf.copyToClipboard.toSource().replace(src, src + `
+try {
+modules.userContext["${key}"].reg.swap10(str);
+} catch(ex) {
+    liberator.echoerr(ex);
+}
+`);
 
-    util.copyToClipboard = liberator.eval(<>(function() {code})()</>.toString(),util.copyToClipboard);
+    util.copyToClipboard = liberator.eval(`(function() ${code})()`, util.copyToClipboard);
     //}}}
 
     function dateFormat(fmt) new Date().toLocaleFormat(fmt)
