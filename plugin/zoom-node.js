@@ -5,7 +5,7 @@
   const vimpZoomAttr = "vimp-zoom";
   const vimpZoomScreenAttr = vimpZoomAttr + "-screen";
 
-  let zoomNodeStyle = <><![CDATA[
+  let zoomNodeStyle = `
     [@attr] {
       position: fixed !important;
       left: 1em !important;
@@ -54,7 +54,7 @@
       background-color: rgba(255,255,255, 0.8);
       z-index: 60000;
     }
-  ]]></>.toString()
+  `
     .replace(/@attrb/g, vimpZoomScreenAttr)
     .replace(/@attr/g, vimpZoomAttr)
   ;
@@ -69,7 +69,7 @@
 
     if (lastElem === elem && !count) {
       elem.removeAttribute(vimpZoomAttr);
-      elem = doc.querySelector(<>[{vimpZoomScreenAttr}]</>);
+      elem = doc.querySelector(`[${vimpZoomScreenAttr}]`);
       elem.parentNode.removeChild(elem);
     } else {
       if (!lastElem) {
@@ -95,7 +95,7 @@
     let doc = win.document;
     let selector;
     let elem;
-    let attr = <>[{vimpZoomAttr}] </>.toString();
+    let attr = `[${vimpZoomAttr}] `;
     if (win.document.querySelector(attr)) {
       selector = attr + "," + [attr + v for([, v] in Iterator(list))].join(",");
     } else {
