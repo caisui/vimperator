@@ -1,6 +1,6 @@
 // vim: set et sw=4 ts=4:
 var INFO =
-<plugin name="option selector" version="0.0.1"
+xml`<plugin name="option selector" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/optionSelector.js"
         summary="option select"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -29,7 +29,7 @@ var INFO =
             call 時に 自動で 補完リストを開く
         </description>
     </item>
-</plugin>
+</plugin>`
 ;
 (function(){
     const key = "optionselectautoshow";
