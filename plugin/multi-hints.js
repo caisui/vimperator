@@ -1,6 +1,6 @@
 // vim: set sw=4 ts=4 et fdm=marker:
 var INFO = //{{{
-<plugin name="multi-hints" version="0.0.2"
+xml`<plugin name="multi-hints" version="0.0.2"
         href="http://github.com/caisui/vimperator/blob/master/plugin/multi-hints.js"
         summary="multi select hint"
         xmlns="http://vimperator.org/namespaces/liberator">
@@ -62,7 +62,7 @@ var INFO = //{{{
             <k><![CDATA[;<Tab>]]></k>っぽい動作をします
         </description>
     </item>
-</plugin>
+</plugin>`
 ; //}}}
 
 (function (self) {
@@ -148,7 +148,13 @@ var INFO = //{{{
         }
     };
 
-    util.extend(self, {
+    function mixin(obj, obj1) {
+        for (var a in obj1) {
+            obj[a] = obj1[a];
+        }
+        return obj;
+    }
+    mixin(self, {
         add: function (name, param) {
             _hintModes[name] = param;
         },
@@ -157,8 +163,8 @@ var INFO = //{{{
 
     function MulitHintMatcher (label) {
         this._matchers = [];
-        let nums = <>[{options.hintchars || "0-9"}]+</>;
-        let re = RegExp(<>({nums})?([-;])?({nums})?</>);
+        let nums = `[${options.hintchars || "0-9"}]+`;
+        let re = new RegExp(`(${nums})?([-;])?(${nums})?`);
         for ([, val] in Iterator(label.split(" "))) {
             let [, lt, range, gt] = re.exec(val);
             if(lt) lt = this.chars2num(lt);
@@ -173,7 +179,7 @@ var INFO = //{{{
     const historyQuery = "history-query";
     storage.newArray(historyQuery, { store: true, privateData: true });
 
-    util.extend(MulitHintMatcher.prototype, {
+    mixin(MulitHintMatcher.prototype, {
         chars2num: hints._chars2num ? function (n) hints._chars2num(n) : function (n) n,
         match: function (n) this._matchers.some(function (m) m(n))
     });
@@ -190,9 +196,9 @@ var INFO = //{{{
                 if (names.length === 1) name = names[0];
                 else {
                     if (names.length > 0)
-                        echoerr(<>{name} is ambiguous. {names.join(" ")}</>);
+                        echoerr(`${name} is ambiguous. ${names.join(" ")}`);
                     else
-                        echoerr(<>unknown command: {name}</>);
+                        echoerr(`unknown command: ${name}`);
                     return;
                 }
             }
@@ -220,7 +226,7 @@ var INFO = //{{{
             commandline.close();
         }
         commandline.setTimeout(function () {
-            commandline.input(<>[{selector}]:</>.toString(), function (arg){
+            commandline.input(`[${selector}]:`, function (arg){
                 let args = [];
                 let list = hints._pageHints;
                 let matcher = new MulitHintMatcher(arg);
@@ -338,9 +344,9 @@ var INFO = //{{{
 
                         let res = "";
                         if (parentId.length)
-                            res += <>#{parentId[0]} </>.toString();
+                            res += `#${parentId[0]} `;
                         res += classList.length
-                            ? <>{tag[0]}.{classList.join(".")}</>
+                            ? `${tag[0]}.${classList.join(".")}`
                             : tag[0];
 
                         hints.hide();
