@@ -50,7 +50,7 @@
             file.appendRelativePath("firefox.exe");
 
             if (!file || !file.exists()) {
-                liberator.echoerr(<>not found firefox.exe!</>.toString());
+                liberator.echoerr(`not found firefox.exe!`);
                 return;
             }
             let proc = Cc["@mozilla.org/process/util;1"].createInstance(Ci.nsIProcess);
