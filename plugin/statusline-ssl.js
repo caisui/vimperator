@@ -20,10 +20,12 @@ xml`<plugin name="statusline-ssl" version="0.0.1"
         </description>
     </item>
 </plugin>`; //}}}
+
 (function () {
     if (Application.version[0] === "3") return ;
     highlight.loadCSS(`
         StatusLineBroken    color: black; background: #FFa0a0 /* light-red */
+        StatusLineWeak      color: black; background: #FFFFa0 /* light-yellow */
         StatusLineSecure    color: black; background: #a0a0FF /* light-blue */
         StatusLineExtended  color: black; background: #a0FFa0 /* light-green */
     `);
@@ -36,15 +38,20 @@ xml`<plugin name="statusline-ssl" version="0.0.1"
             if (this._state === (this._state = state)) return;
 
             const wpl = Ci.nsIWebProgressListener;
-            const wpl_security_bits = wpl.STATE_IS_SECURE | wpl.STATE_IS_BROKEN | wpl.STATE_IS_INSECURE | wpl.STATE_SECURE_HIGH | wpl.STATE_SECURE_MED | wpl.STATE_SECURE_LOW;
+            const wpl_security_bits = wpl.STATE_IS_SECURE | wpl.STATE_IS_BROKEN | wpl.STATE_IS_INSECURE |
+                                      wpl.STATE_SECURE_HIGH | wpl.STATE_SECURE_MED | wpl.STATE_SECURE_LOW |
+                                      wpl.STATE_IDENTITY_EV_TOPLEVEL;
             let level;
             switch (this._state & wpl_security_bits) {
+              case wpl.STATE_IS_SECURE | wpl.STATE_SECURE_HIGH | wpl.STATE_IDENTITY_EV_TOPLEVEL:
+                level = "Extended";
+                break;
               case wpl.STATE_IS_SECURE | wpl.STATE_SECURE_HIGH:
                 level = "Secure";
                 break;
               case wpl.STATE_IS_SECURE | wpl.STATE_SECURE_MED:
               case wpl.STATE_IS_SECURE | wpl.STATE_SECURE_LOW:
-                level = "Extended";
+                level = "Weak";
                 break;
               case wpl.STATE_IS_BROKEN:
                 level = "Broken";
