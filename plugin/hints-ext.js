@@ -261,7 +261,9 @@ _showHints: function () {
     let pageHints = this._pageHints;
     let hintString = this._hintString;
 
-    this._docs.forEach(function (e) e.root.style.display = "none");
+    this._docs.forEach(function (e) {
+        if (e.root instanceof Node) e.root.style.display = "none";
+    });
     this._showActiveHint(null, this._hintNumber || 1);
 
     if (this._prevInput != "number") {
@@ -315,7 +317,9 @@ _showHints: function () {
         }
     }
 
-    this._docs.forEach(function (e) e.root.style.display = "");
+    this._docs.forEach(function (e) {
+        if (e.root instanceof Node) e.root.style.display = "";
+    });
     this._showActiveHint(this._hintNumber || 1);
 },
 _iterTags: function (win, screen) {
@@ -679,6 +683,9 @@ onEvent: function onEvent(event) {
 
         this._docs.forEach(function (root) {
             let doc = root.doc;
+
+            if (!(doc instanceof Document)) return;
+
             let result = util.evaluateXPath("//*[@liberator:highlight='hints']", doc, null, true);
             let hints = [], e;
             while (e = result.iterateNext())
