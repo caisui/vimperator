@@ -216,6 +216,7 @@ show: function _show(minor, filter, win) {
     var isSelector = this._hintMode.hasOwnProperty(minor);
 
     commandline.input((isSelector ? "ex:" : "") + this._hintMode.prompt, null, {
+        default: filter,
         onChange: function(e) { self._hintString != commandline.command && self._onInput(e); },
         onCancel: function () { self._removeHints(); },
     });
@@ -230,6 +231,7 @@ show: function _show(minor, filter, win) {
     this._canUpdate = false;
 
     if (!win) win = content.window;
+    this._window = Cu.getWeakReference(win);
 
     this._generate(win);
 
@@ -734,6 +736,13 @@ onEvent: function onEvent(event) {
         });
     },
     removeSimpleMap: function (key) delete this.simpleMaps[key],
+    redraw: function () {
+        var minor = this._submode;
+        var filter = this._hintString;
+        var win = this._window.get();
+        this.hide();
+        this.show(minor, filter, win);
+    },
     relocation: function _relocation() {
         let time = Date.now();
         function sort(a, b) {
