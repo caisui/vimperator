@@ -334,6 +334,20 @@ _showHints: function () {
     }
 
     this._docs.forEach(function (e) e.root.style.display = "");
+
+    if (config.browser.markupDocumentViewer.authorStyleDisabled) {
+        var count = 0;
+        let css = [];
+        for (var { root } of this._docs) {
+            for (var elem of [root, ...root.querySelectorAll("[style]")]) {
+                elem.setAttributeNS(NS.uri, "hintstyle", count);
+                css.push(`[liberator|hintstyle="${count}"]{${elem.style.cssText}}`);
+                count++;
+            }
+        }
+        styles.addSheet(true, "hint-positions", "*", css.join("\n"));
+    }
+
     this._showActiveHint(this._hintNumber || 1);
 },
 _iterTags: function (win, screen) {
