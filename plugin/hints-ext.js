@@ -152,6 +152,7 @@ styles.addSheet(true, "HintExtStyle", "*", `
 [liberator|highlight~='HintExtElem'] {
     position: absolute!important;
     margin: 0!important;
+    overflow: visible!important;
 }
 [liberator|highlight~='HintExt'] {
     position: absolute!important;
