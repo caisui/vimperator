@@ -131,6 +131,9 @@ function HintsExt() {
 }
 
 function getUtils(win) win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils)
+function getCache(obj, key, fn) {
+    return obj[key] || (obj[key] = (fn || Object)());
+}
 
 if (!highlight.get("HintExtElem")) {
 highlight.loadCSS(`
@@ -169,25 +172,17 @@ styles.addSheet(true, "HintExtStyle", "*", `
 
 HintsExt.prototype = {
 init: function (hints) {
-    this._hintModes = {
-        __proto__: original._hintModes,
-        __iterator__: function iterator() {
-            var seen = {};
-            var names = Object.getOwnPropertyNames(this);
-            for (let [, name] in Iterator(names)) {
-                if (name === "__iterator__") continue;
-                yield [name, this[name]];
-                seen[name] = 1;
-            }
-            for (let name in this.__proto__) {
-                if (seen[name]) continue;
-                yield [name, this[name]];
-            }
-        },
-    };
-    this.simpleMaps = [];
     this._reset();
 },
+get _hintModes() getCache(userContext, "hints._hintModes@cache", function () {
+    var dest = {};
+    var src = original._hintModes;
+    for (var a in src) {
+        dest[a] = src[a];
+    }
+    return dest;
+}),
+get simpleMaps() getCache(userContext,"hints.simpleMaps@cache", Array),
 get previnput() this._prevInput,
 _reset: function () {
     statusline.updateInputBuffer("");
