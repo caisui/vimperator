@@ -200,8 +200,16 @@ _reset: function () {
     }
     this._activeTimeout = null;
 },
-show: function _show(minor, filter, win) {
+show: function show(minor, filter, win) {
+    this._show({ minor: minor, filter: filter, win: win,});
+},
+_show: function _show(kwargs) {
     try {
+    var minor = kwargs.minor;
+    var filter = kwargs.filter;
+    var win = kwargs.win;
+    var adj = ("adj" in kwargs) ? kwargs.adj : !userContext.disable_adj_inline;
+
     let time = Date.now();
     const self = this;
     this._pageHints = [];
@@ -781,6 +789,18 @@ onEvent: function onEvent(event) {
         var win = this._window.get();
         this.hide();
         this.show(minor, filter, win);
+    },
+    toggleInlineAdj: function () {
+        var minor = this._submode;
+        var filter = this._hintString;
+        var win = this._window.get();
+        this.hide();
+        this._show({
+            minor: minor,
+            filter: filter,
+            win: this._window.get(),
+            adj: !this._adjInline,
+        });
     },
     relocation: function _relocation() {
         let time = Date.now();
