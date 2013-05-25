@@ -224,6 +224,7 @@ show: function _show(minor, filter, win) {
     this._usedTabKey = false;
     this._prevInput = "";
     this._canUpdate = false;
+    this._adjInline = !liberator.globalVariables.disable_adj_inline;
 
     if (!win) win = content.window;
     this._window = Cu.getWeakReference(win);
@@ -406,6 +407,31 @@ _iterTags: function (win, screen) {
             [text, showText] = this._getInputHint(node, doc);
         //} else if (objectName === "[object HTMLAreaElement]") {
         } else {
+            if (this._adjInline && !node.clientHeight) {
+                let r = doc.createRange();
+                r.selectNodeContents(node);
+                rects = r.getClientRects();
+                r.detach();
+                // merge
+                if (rects.length > 1) {
+                    let prev = {}; // dummy
+                    let res = [];
+                    for (r of rects) {
+                        if (r.top === r.bottom || r.left === r.right) {
+                        } else if (r.top === prev.top && r.bottom === prev.bottom) {
+                            prev.right = r.right;
+                        } else {
+                            prev = HintsExt.Rect(r.left, r.top, r.right, r.bottom);
+                            res[res.length] = prev;
+                        }
+                    }
+
+                    if (res.length) {
+                        rects = res;
+                    }
+                }
+            }
+
             text = node.textContent.toLowerCase();
 
             //if (!text.trim()) {
