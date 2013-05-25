@@ -261,9 +261,27 @@ show: function _show(minor, filter, win) {
 _showHints: function () {
     let pageHints = this._pageHints;
     let hintString = this._hintString;
+    var dummy = let (nop=function(){}) ({
+        style: {},
+        setAttribute: nop,
+        setAttributeNS: nop,
+        removeAttribute: nop,
+        removeAttributeNS: nop,
+    });
 
     this._docs.forEach(function (e) {
-        if (e.root instanceof Node) e.root.style.display = "none";
+        if (Cu.isDeadWrapper(e.root)) {
+            var items = pageHints;
+
+            e.root = dummy;
+            for (var i = e.start; i <= e.end; i++) {
+                var item = pageHints[i];
+                item.hint = dummy;
+                item.label = dummy;
+                item.rect_list = [];
+            }
+        }
+        e.root.style.display = "none";
     });
     this._showActiveHint(null, this._hintNumber || 1);
 
@@ -273,23 +291,22 @@ _showHints: function () {
 
         for (let i = 0, j = pageHints.length; i < j; ++i) {
             let item = pageHints[i];
+
             if (test(item.text)) {
                 kNum = validHints.length;
                 validHints[kNum] = item;
-                //item.hint.firstChild.setAttribute("number", hints._num2chars(kNum + 1));
-                var ri, rj = item.rect_list.length;
-                for (ri = 0; ri < rj; ri++)
-                    item.rect_list[ri].style.display = "";
-                item.label.style.display = "";
+                var display = "";
             } else {
                 item.chars = "";
-                var ri, rj = item.rect_list.length;
-                for (ri = 0; ri < rj; ri++)
-                    item.rect_list[ri].style.display = "none"
-                item.label.style.display = "none";
+                var display = "none";
             }
+            var ri, rj = item.rect_list.length;
+            for (ri = 0; ri < rj; ri++)
+                item.rect_list[ri].style.display = display;
+            item.label.style.display = display;
         }
 
+        //XXX: _num2chars が validHints.length 依存のため
         for (let i = 0, j = validHints.length; i < j; ++i) {
             let item = validHints[i];
             item.chars = item.showText ? hints._num2chars(i + 1, j) + ":" + item.text : hints._num2chars(i + 1, j);
@@ -318,9 +335,7 @@ _showHints: function () {
         }
     }
 
-    this._docs.forEach(function (e) {
-        if (e.root instanceof Node) e.root.style.display = "";
-    });
+    this._docs.forEach(function (e) e.root.style.display = "");
     this._showActiveHint(this._hintNumber || 1);
 },
 _iterTags: function (win, screen) {
@@ -684,8 +699,7 @@ onEvent: function onEvent(event) {
 
         this._docs.forEach(function (root) {
             let doc = root.doc;
-
-            if (!(doc instanceof Document)) return;
+            if (Cu.isDeadWrapper(doc)) return;
 
             let result = util.evaluateXPath("//*[@liberator:highlight='hints']", doc, null, true);
             let hints = [], e;
