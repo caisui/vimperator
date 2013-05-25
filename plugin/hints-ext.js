@@ -422,26 +422,30 @@ _iterTags: function (win, screen) {
         //} else if (objectName === "[object HTMLAreaElement]") {
         } else {
             if (this._adjInline && !node.clientHeight) {
-                let r = doc.createRange();
-                r.selectNodeContents(node);
-                rects = r.getClientRects();
-                r.detach();
-                // merge
-                if (rects.length > 1) {
-                    let prev = {}; // dummy
-                    let res = [];
-                    for (r of rects) {
-                        if (r.top === r.bottom || r.left === r.right) {
-                        } else if (r.top === prev.top && r.bottom === prev.bottom) {
-                            prev.right = r.right;
-                        } else {
-                            prev = HintsExt.Rect(r.left, r.top, r.right, r.bottom);
-                            res[res.length] = prev;
-                        }
-                    }
+                for (var c of node.getElementsByTagName("*")) {
+                    if (c.clientHeight) {
+                        let r = doc.createRange();
+                        r.selectNodeContents(c.parentNode);
+                        rects = r.getClientRects();
+                        r.detach();
+                        // merge
+                        if (rects.length > 1) {
+                            let prev = {}; // dummy
+                            let res = [];
+                            for (r of rects) {
+                                if (r.top === r.bottom || r.left === r.right) {
+                                } else if (r.top === prev.top && r.bottom === prev.bottom) {
+                                    prev.right = r.right;
+                                } else {
+                                    prev = HintsExt.Rect(r.left, r.top, r.right, r.bottom);
+                                    res[res.length] = prev;
+                                }
+                            }
 
-                    if (res.length) {
-                        rects = res;
+                            if (res.length) {
+                                rects = res;
+                            }
+                        }
                     }
                 }
             }
