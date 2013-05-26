@@ -30,6 +30,7 @@
 
         try {
             let profile = propertiesFile.ProfD.parent;
+
             profile.append(name);
 
             let params = ["--no-remote", "-profile", profile.path];
@@ -47,6 +48,10 @@
                 params.push("-vimperator", vimparams.join(" "));
 
             let file = propertiesFile.CurProcD;
+            if (file.leafName === "browser") {
+                file = file.parent;
+            }
+
             file.appendRelativePath("firefox.exe");
 
             if (!file || !file.exists()) {
