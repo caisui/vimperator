@@ -139,12 +139,12 @@ if (!highlight.get("HintExtElem")) {
 highlight.loadCSS(`
     HintExtElem,,*  {
         border: 1px solid rgba(128,128,128,.5);
-        -moz-border-radius: 2px;
+        border-radius: 2px;
         background-color: rgba(255,255,128, .1);
         -moz-box-sizing: border-box;
     }
     HintExtActive,,*  {background-color: rgba(128,255,128,.3);}
-    HintExt,,* {font-size: 12px;color:white;background-color:red;font-weight: bold;text-transform: uppercase;-moz-border-radius: 2px; padding: 0 2px;}
+    HintExt,,* {font-size: 12px;color:white;background-color:red;font-weight: bold;text-transform: uppercase;border-radius: 2px; padding: 0 2px;}
     HintExtActive>span,,*  {background-color: blue;}
 HintExtActive,,*  {background-color: rgba(128,255,128,.3);}
 HintExtActive>*,,*  {background-color: blue;}
