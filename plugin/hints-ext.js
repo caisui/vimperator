@@ -232,7 +232,7 @@ _show: function _show(kwargs) {
     this._usedTabKey = false;
     this._prevInput = "";
     this._canUpdate = false;
-    this._adjInline = !liberator.globalVariables.disable_adj_inline;
+    this._adjInline = adj;
 
     if (!win) win = content.window;
     this._window = Cu.getWeakReference(win);
