@@ -208,7 +208,7 @@ _show: function _show(kwargs) {
     var minor = kwargs.minor;
     var filter = kwargs.filter;
     var win = kwargs.win;
-    var adj = ("adj" in kwargs) ? kwargs.adj : !userContext.disable_adj_inline;
+    var adj = ("adj" in kwargs) ? kwargs.adj : !liberator.globalVariables.disable_adj_inline;
 
     let time = Date.now();
     const self = this;
