@@ -816,6 +816,11 @@ onEvent: function onEvent(event) {
         self._docs.forEach(function (root) {
             const doc = root.doc;
             const win = doc.defaultView;
+
+            if (root.start > root.end) {
+                return;
+            }
+
             const size = parseFloat(win.getComputedStyle(self._pageHints[root.start].label, null).fontSize) + 2;
             const lines = [];
 
