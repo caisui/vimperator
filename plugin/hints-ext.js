@@ -167,6 +167,9 @@ styles.addSheet(true, "HintExtStyle", "*", `
 [liberator|highlight~='HintExt']::before {
     content: attr(num);
 }
+[liberator|highlight~='HintExtActive'] {
+    z-index:65536!important;
+}
 `, true);
 }
 
