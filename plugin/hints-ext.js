@@ -805,6 +805,27 @@ onEvent: function onEvent(event) {
             adj: !this._adjInline,
         });
     },
+    moveActiveHint: function moveActiveHint(count) {
+        if (!count) count = 10;
+        var startTime = Date.now();
+        var items = [i for(i of this._validHints) if (i.label.style.display === "")];
+        var last = items.length - 1;
+        var oldNumber = this._hintNumber || 1;
+
+        var index = items.indexOf(this._validHints[oldNumber - 1]);
+        if (index === -1) index = 0;
+
+        if (index === 0 && count < 0) {
+            index = last;
+        } else if (count > 0 && index === last) {
+            index = 0;
+        } else {
+            index = Math.max(0, Math.min(index + count, last));
+        }
+        this._hintNumber = this._validHints.indexOf(items[index]) + 1;
+        this._showActiveHint(this._hintNumber, oldNumber);
+        Cu.reportError(Date.now() - startTime);
+    },
     relocation: function _relocation() {
         let time = Date.now();
         function sort(a, b) {
