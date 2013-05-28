@@ -1070,8 +1070,17 @@ let h = new HintsExt();
 modules.hints = h;
 hints.addModeEx("f", "Focus Frame", function(win) Buffer.focusedWindow = win, function (win, screen) [{rect: [screen], value: win}]);
 
-if (liberator.globalVariables["use_hints_ext_hinttags"]) {
-    options.hinttags = hinttags;
+if (liberator.globalVariables["use_hints_ext_hinttags"] && !options.get("het")) {
+    options.add(["hintexttags", "het"],
+        "XPath or query string of hintable elements activated by 'f' and 'F'",
+        "string", hinttags, { scope: Option.SCOPE_BOTH });
+    let defalutTags = Hints.Mode().tags.toString();
+    let queryTags = function () options.hintexttags;
+    for (let [a, obj] in Iterator(h._hintModes)) {
+        if (obj.tags == defalutTags && !obj.generate) {
+            h._hintModes[a] = Hints.Mode(obj[0], obj[1], queryTags);
+        }
+    }
 }
 if (liberator.globalVariables["use_hints_ext_extendedhinttags"]) {
     options.extendedhinttags = hinttags;
