@@ -1,6 +1,6 @@
 (function () {
     let hintMode = liberator.globalVariables.zoomNode || "z";
-    let list = ["div", "iframe", "table", "textarea", "ul", "ol", "pre", "p", "main"];
+    let list = ["div", "iframe", "table", "textarea", "ul", "ol", "pre", "p", "main", "article"];
     const vimpZoomAttr = "vimp-zoom";
     const vimpZoomScreenAttr = vimpZoomAttr + "-screen";
 
