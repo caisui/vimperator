@@ -19,8 +19,8 @@
         width: auto !important;
         height: auto !important;
         z-index: 60001 !important;
-        box-shadow: 0 0 5em black;
-        border: 1px solid gray;
+        border:1px solid gray;
+        outline: 1em solid rgba(128,128,128,.5)!important;
         overflow: auto !important;
         padding: .5em!important;
     }
@@ -33,10 +33,10 @@
     }
 
     [@attr='1'] {
-        background-color: white;
+        background-color: rgba(255,255,255,.99);
     }
     [@attr='2'] {
-        background-color: black;
+        background-color: rgba(0,0,0,.99);
     }
     [@attr='3'] {
         background-color: white;
