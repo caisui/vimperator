@@ -3,6 +3,7 @@
     let list = ["div", "iframe", "table", "textarea", "ul", "ol", "pre", "p", "main", "article"];
     const vimpZoomAttr = "vimp-zoom";
     const vimpZoomScreenAttr = vimpZoomAttr + "-screen";
+    const longHintName = "zoomNode";
 
     let zoomNodeStyle = `
     [@attr] {
@@ -57,7 +58,7 @@
     ;
     var frameSetMap = new WeakMap;
 
-    hints.addMode(hintMode, "zoom", function (elem, href, count) {
+    hints.addMode(longHintName, "zoom", function (elem, href, count) {
         try {
             let doc = elem.ownerDocument;
             let value = count || 1;
@@ -161,6 +162,14 @@
             liberator.echoerr(ex);
         }
     });
+    let (m = hints._hintModes) m[hintMode] = m[longHintName];
 
     styles.addSheet(false, "zoom-node", "*", zoomNodeStyle);
+
+    commands.addUserCommand(["noz[oomNode]"], "clear zoom node", function () {
+        let attr = `[${vimpZoomAttr}] `;
+        var e = content.document.querySelector(attr);
+        e && hints._hintModes[longHintName].action(e);
+    }, {
+    }, true);
 })();
