@@ -457,6 +457,7 @@ _iterTags: function (win, screen) {
                                 rects = res;
                             }
                         }
+                        break;
                     }
                 }
             }
