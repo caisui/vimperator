@@ -1037,7 +1037,19 @@ onEvent: function onEvent(event) {
         let hintMode = Hints.Mode(prompt, action);
         hintMode.generate = generate;
         this._hintModes[mode] = hintMode;
-    }
+    },
+    nodesFromRect: function nodesFromRect(win, screen) {
+        if (!screen) {
+            screen = {
+                left: 0,
+                top: 0,
+                right: win.innerWidth,
+                bottom: win.innerHeight,
+            };
+        }
+        return getUtils(win).nodesFromRect(
+            screen.left, screen.top, 0, screen.right, screen.bottom, 0, true, true);
+    },
 };
 this.Rect = HintsExt.Rect = function (left, top, right, bottom) ({
     left: left,
