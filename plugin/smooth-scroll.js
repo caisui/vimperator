@@ -17,6 +17,10 @@
         get duration() liberator.globalVariables.smooth_scroll_duration || 300,
         get pos() this._end,
         set pos(value) {
+            if (this._end === value) {
+                return;
+            }
+
             this.startTime = Date.now();
             this.endTime = this.startTime + this.duration;
 
