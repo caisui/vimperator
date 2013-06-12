@@ -285,6 +285,29 @@
         }, {count: true});
     }
 
+    if (!liberator.globalVariables.no_smooth_scroll_space_hack) {
+        const query = ["button", ...[
+            `input[type="${t}"]` for (t of [
+                "button",
+                "checkbox",
+                "file",
+                "image",
+                "radio",
+                "reset",
+                "submit",
+            ])]].join(",");
+        config.ignoreKeys["<Space>"] &= ~modes.NORMAL;
+        mappings.addUserMap([modes.NORMAL], ["<Space>"], "scroll page(override space map)", function (count) {
+            var elem = liberator.focus;
+            // TODO: screen out の場合も無視
+            if (elem && elem.mozMatchesSelector(query)) {
+                return;
+            }
+
+            buffer.scrollPages(count || 1);
+        }, { count: true});
+    }
+
     this.onUnload = function () {
         try {
             manager.reset();
