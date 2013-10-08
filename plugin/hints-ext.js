@@ -188,7 +188,11 @@ get _hintModes() getCache(userContext, "hints._hintModes@cache", function () {
 get simpleMaps() getCache(userContext,"hints.simpleMaps@cache", Array),
 get previnput() this._prevInput,
 _reset: function () {
-    statusline.updateInputBuffer("");
+    if(statusline.updateInputBuffer) {
+        statusline.updateInputBuffer("");
+    } else {
+        statusline.updateField("input", "");
+    }
     this._hintString = "";
     this._hintNumber = 0;
     this._usedTabKey = false;
