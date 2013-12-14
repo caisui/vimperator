@@ -387,21 +387,19 @@ _iterTags: function (win, screen) {
     let selector = this._hintMode.tags(win, screen);
     var matcher;
     function makeMatcher(array) {
-        let pos = 0;
+        const src = new Set(array);
         return function _matcher(node) {
-            let index = array.indexOf(node, pos);
-            return index != -1 ? (pos = index + 1) : false;
+            return src.has(node);
         };
     }
     if (typeof(selector) == "string") {
         if (selector[0] == "/") { // xpath
-            let e, list = [];
-            let res = util.evaluateXPath(selector, doc, null, true);
-            while(e = res.iterateNext()) list[list.length] = e;
-            matcher = makeMatcher(list);
+            matcher = makeMatcher((e for(e in util.evaluateXPath(selector, doc, null, true))));
         } else { // selector
             matcher = function (node) node.mozMatchesSelector(selector);
         }
+    } else if (selector instanceof Function) {
+        matcher = selector;
     } else if ("length" in selector) { // Array like
         if (Array.isArray && !Array.isArray(selector))
             selector = Array.slice(selector);
