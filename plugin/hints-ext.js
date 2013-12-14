@@ -882,6 +882,11 @@ onEvent: function onEvent(event) {
 
         const self = this;
         const pageHints = self._pageHints;
+
+        for (var item of pageHints) {
+            item.r = item.label.getBoundingClientRect();
+        }
+
         self._docs.forEach(function (root) {
             const doc = root.doc;
             const win = doc.defaultView;
@@ -923,7 +928,7 @@ onEvent: function onEvent(event) {
                 let left = 0;
                 line.forEach(function (item) {
                     let elem = item.label;
-                    let w1 = elem.getBoundingClientRect().width;
+                    let w1 = item.r.width;
                     let w2 = item.left - left;
                     if (w1 > w2) {
                         left += w1 + 1;
