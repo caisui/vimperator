@@ -153,22 +153,32 @@ HintExt::before,,* { /* no style */ }
 
 styles.addSheet(true, "HintExtStyle", "*", `
 [liberator|highlight~='HintExtElem'] {
-    position: absolute!important;
-    margin: 0!important;
-    overflow: visible!important;
+    position: absolute;
+    margin: 0;
+    overflow: visible;
 }
 [liberator|highlight~='HintExt'] {
-    position: absolute!important;
-    z-index:65535!important;
-    line-height: 100%!important;
+    position: absolute;
     white-space: nowrap;
-    overflow: visible!important;
+    overflow: visible;
+    z-index: 1;
 }
 [liberator|highlight~='HintExt']::before {
     content: attr(num);
 }
 [liberator|highlight~='HintExtActive'] {
-    z-index:65536!important;
+    z-index: 2;
+}
+[liberator|highlight~='HintExtRootElem'] {
+    z-index:65536;
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+[liberator|highlight~='HintExtFrameElem'] {
+    z-index:65536;
+    position: absolute;
+    overflow: hidden;
 }
 `, true);
 }
@@ -279,6 +289,7 @@ _showHints: function () {
         removeAttributeNS: nop,
     });
 
+    this._hintRoot.style.display = "none";
     this._docs.forEach(function (e) {
         if (Cu.isDeadWrapper(e.root)) {
             var items = pageHints;
@@ -291,7 +302,6 @@ _showHints: function () {
                 item.rect_list = [];
             }
         }
-        e.root.style.display = "none";
     });
     this._showActiveHint(null, this._hintNumber || 1);
 
@@ -345,45 +355,64 @@ _showHints: function () {
         }
     }
 
-    this._docs.forEach(function (e) e.root.style.display = "");
-
-    if (config.browser.markupDocumentViewer.authorStyleDisabled) {
-        var count = 0;
-        let css = [];
-        for (var { root } of this._docs) {
-            for (var elem of [root, ...root.querySelectorAll("[style]")]) {
-                elem.setAttributeNS(NS.uri, "hintstyle", count);
-                css.push(`[liberator|hintstyle="${count}"]{${elem.style.cssText}}`);
-                count++;
-            }
-        }
-        styles.addSheet(true, "hint-positions", "*", css.join("\n"));
-    }
-
     this._showActiveHint(this._hintNumber || 1);
+    this._hintRoot.style.display = "";
 },
-_iterTags: function (win, screen) {
-    const doc = win.document;
+_getOnscreenElements1: function (win, screen) {
+    var doc = win.document;
     let winUtils = getUtils(win);
     let nodeList = Array.slice(winUtils.nodesFromRect(
         screen.left, screen.top, 0, screen.right, screen.bottom, 0, true, true
     ));
 
-    { // sort
-        let b = [], item;
-        for (let i = 0, j = nodeList.length, k = 0; i < j; ++i) {
-            item = nodeList[i];
-            if (item.nodeType == Node.ELEMENT_NODE)
-                b[k++] = item;
-        }
-
-        //xxx: HTMLAreaElement が 含まれないため
-        let c = Array.slice(doc.getElementsByTagName("area"));
-        if (c.length > 0) Array.splice.apply(null, [b, b.length, 0].concat(c));
-
-        b.sort(function (a, b) a.compareDocumentPosition(b) & 0x2);
-        nodeList = b;
+    let b = [], item;
+    for (let i = 0, j = nodeList.length, k = 0; i < j; ++i) {
+        item = nodeList[i];
+        if (item.nodeType == Node.ELEMENT_NODE)
+            b[k++] = item;
     }
+
+    //xxx: HTMLAreaElement が 含まれないため
+    let c = Array.slice(doc.getElementsByTagName("area"));
+    if (c.length > 0) Array.splice.apply(null, [b, b.length, 0].concat(c));
+
+    b.sort(function (a, b) a.compareDocumentPosition(b) & 0x2);
+    return b;
+},
+_getOnscreenElements2: function (win, screen) {
+    var doc = win.document;
+    let winUtils = getUtils(win);
+    let nodeList = Array.slice(winUtils.nodesFromRect(
+        screen.left, screen.top, 0, screen.right, screen.bottom, 0, true, true
+    ));
+
+    let b = [], item, p;
+    var uniq = new Set, nodeType;
+    for (let i = 0, j = nodeList.length, k = 0; i < j; ++i) {
+        item = nodeList[i];
+        nodeType = item.nodeType;
+        if (nodeType === Node.TEXT_NODE)
+            item = item.parentNode;
+        if (item.nodeType == Node.ELEMENT_NODE) {
+            for (; !uniq.has(item) && item; item = item.parentElement) {
+                uniq.add(item);
+            }
+        }
+    }
+
+    //xxx: HTMLAreaElement が 含まれないため
+    //let c = Array.slice(doc.getElementsByTagName("area"));
+    b = [...uniq, ...doc.getElementsByTagName("area")];
+    //if (c.length > 0) Array.splice.apply(null, [uniq, uniq.size, 0].concat(c));
+
+    b.sort(function (a, b) a.compareDocumentPosition(b) & 0x2);
+    return b;
+},
+fixRect0: true,
+_iterTags: function iterTag(win, screen) {
+    const doc = win.document;
+    var nodeList = this["_getOnscreenElements" + (this.fixRect0 ? 2 : 1)](win, screen);
+
     let selector = this._hintMode.tags(win, screen);
     var matcher;
     function makeMatcher(array) {
@@ -520,11 +549,46 @@ _getAreaOffset: function (elem, rect) {
         return rect;
     }
 },
+createRootElement: function getRootElement(win) {
+    var stack = [];
+    var doc = win.document;
+    var stack = [];
+    var du = Cc["@mozilla.org/inspector/dom-utils;1"].getService(Ci.inIDOMUtils);
+    var e = doc;
+    while (e = du.getParentForNode(e, true)) {
+        stack.push(e);
+        doc = e = e.ownerDocument;
+    }
+    var root = doc.createElementNS(XHTML, "div");
+    root.setAttributeNS(NS, "highlight", "HintExtRootElem");
+
+    var cur = root;
+    while (e = stack.pop()) {
+        var box = e.ownerDocument.createElementNS(XHTML, "div");
+        box.setAttributeNS(NS, "highlight", "HintExtFrameElem");
+        var rect = e.getBoundingClientRect();
+        box.style.cssText =`
+            left:   ${rect.left}px;
+            top:    ${rect.top}px;
+            width:  ${rect.width}px;
+            height: ${rect.height}px;
+        `;
+        cur.appendChild(box);
+        cur = box;
+    }
+    root.style.display = "none";
+    (doc.body || doc.documentElement || doc.querySelector("body")).appendChild(root);
+    this._hintRoot = root;
+    return [root, cur];
+},
 _generate: function _generate(win, screen) {
     if (!win) win = config.browser.contentWindow;
     const doc = win.document;
     if (!screen)
-        screen = {top: 0, left: 0, bottom: win.innerHeight, right: win.innerWidth};
+        screen = {top: 0, left: 0, bottom: win.innerHeight, right: win.innerWidth, root: this.createRootElement(win)};
+    else if (!screen.root) {
+        screen.root = this.createRootElement(win);
+    }
 
     if (screen.right <= 0 || screen.bottom <= 0) return;
 
@@ -542,21 +606,8 @@ _generate: function _generate(win, screen) {
     var start = pageHints.length;
     var baseNode = util.xmlToDom(
         xml`<div highlight="HintExtElem"><span highlight="HintExt"/></div>`,
-        doc);
-    var root = doc.createElementNS(XHTML, "div");
-    root.setAttributeNS(NS, "highlight", "hints");
-
-    root.style.cssText = `
-    z-index: 65535!important;
-    position: fixed!important;
-    top: 0!important;
-    left: 0!important;
-    text-align: left!important;
-    margin: 0 !important;
-    display: none;
-    overflow: visible;
-`;
-    root.style.display = "none";
+        screen.root[1].ownerDocument);
+    var root = screen.root[1];
 
     var appended;
     var item, value, rects;
@@ -604,8 +655,6 @@ _generate: function _generate(win, screen) {
         }
     }
 
-    var body = doc.body || doc.querySelector("body") || doc.documentElement;
-    body.appendChild(root);
     this._docs.push({ doc: doc, start: start, end: pageHints.length - 1, root: root });
 
     var frames = Array.slice(win.frames);
@@ -613,11 +662,19 @@ _generate: function _generate(win, screen) {
     for (var i = 0, j = frames.length; i < j; ++i) {
         frame = frames[i];
 
+        if (!frame.frameElement)
+            continue;
+
         rect = frame.frameElement.getBoundingClientRect();
         if (rect.top > screen.bottom || rect.left > screen.right) continue;
+        var box = root.ownerDocument.createElementNS(XHTML, "div");
+        box.setAttributeNS(NS, "highlight", "HintExtFrameElem");
+        box.style.cssText = `left:${rect.left}px; top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;`;
+        root.appendChild(box);
         aScreen = {
             top:  Math.max(0, - rect.top),
             left: Math.max(0, - rect.left),
+            root: [screen.root[0], box],
         };
         aScreen.right  = Math.min(screen.right,  rect.right) - rect.left;
         aScreen.bottom = Math.min(screen.bottom, rect.bottom) - rect.top;
@@ -747,19 +804,10 @@ onEvent: function onEvent(event) {
             this.setTimeout(function() this._removeHints(), num);
             return;
         }
-        this._showActiveHint(-1, this._hintNumber);
-
-        this._docs.forEach(function (root) {
-            let doc = root.doc;
-            if (Cu.isDeadWrapper(doc)) return;
-
-            let result = util.evaluateXPath("//*[@liberator:highlight='hints']", doc, null, true);
-            let hints = [], e;
-            while (e = result.iterateNext())
-                hints.push(e);
-            while (e = hints.pop())
-                e.parentNode.removeChild(e);
-        });
+        if (this._hintRoot) {
+            this._hintRoot.parentNode.removeChild(this._hintRoot)
+            this._hintRoot = null;
+        }
 
         this._reset();
     },
