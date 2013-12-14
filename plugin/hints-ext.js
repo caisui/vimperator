@@ -898,31 +898,22 @@ onEvent: function onEvent(event) {
             const size = parseFloat(win.getComputedStyle(self._pageHints[root.start].label, null).fontSize) + 2;
             const lines = [];
 
-            for (let i = root.start, j = root.end; i <= j; i++) {
-                let item = pageHints[i];
-                let index = Math.floor(item.top / size + .5);
-                if (!(index in lines)) lines[index] = [];
-                lines[index].push(item);
-            };
+            var items = pageHints.slice(root.start, root.end);
+            items.sort(function (a, b) a.top - b.top);
 
-            // xxx: debug
-            if (0) {
-                let kE = doc.createElement("div");
-                kE.style.position = "absolute";
-                kE.style.height  = size + "px";
-                kE.style.padding = "0";
-                kE.style.width = win.innerWidth + "px";
-                for (let i in util.range(0, lines.length)) {
-                    let top = i * size;
-                    let kE2 = kE.cloneNode(true);
-                    kE2.style.top = top + "px";
-                    if (i & 1) kE2.style.backgroundColor = "rgba(128,128,128,.3)";
-                    root.root.appendChild(kE2);
+            var item, top = 0, a, bottom = -Infinity;
+
+            for (var item of items) {
+                if (item.top > bottom) {
+                    a = lines[lines.length] = [item];
+                    bottom = item.top + size;
+                } else {
+                    a[a.length] = item;
                 }
             }
 
             lines.forEach(function (line, i) {
-                let top = i * size;
+                let top = line[0].top;
                 line.sort(sort);
 
                 let left = 0;
