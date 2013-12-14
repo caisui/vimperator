@@ -331,7 +331,7 @@ _showHints: function () {
 
         for (let i = 0, j = validHints.length; i < j; ++i) {
             let item = validHints[i];
-            let show = item.chars.substr(0, len) === num;
+            let show = item.chars.lastIndexOf(num, 0) === 0;
             let style_display = show ? "" : "none";
             item.label.style.display = style_display;
             for (var ri = 0, rj = item.rect_list.length; ri < rj; ri++)
