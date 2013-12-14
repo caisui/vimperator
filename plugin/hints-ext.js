@@ -174,6 +174,7 @@ styles.addSheet(true, "HintExtStyle", "*", `
 }
 
 HintsExt.prototype = {
+get original() original,
 init: function (hints) {
     this._reset();
 },
@@ -1125,7 +1126,7 @@ if (liberator.globalVariables["use_hints_ext_extendedhinttags"]) {
                 if (this.prompt === "visual")
                     modes.set(modes.VISUAL, modes.CARET);
             },
-            generate: function (win, screen) {
+            generate: function textnode_generate(win, screen) {
                 let nodes = getUtils(win).nodesFromRect(
                     screen.left, screen.top, 0, screen.right, screen.bottom, 0, true, true);
                 nodes = Array.slice(nodes);
