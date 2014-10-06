@@ -22,13 +22,14 @@ xml`<plugin name="statusline-ssl" version="0.0.1"
 </plugin>`; //}}}
 
 (function () {
-    if (Application.version[0] === "3") return ;
-    highlight.loadCSS(`
-        StatusLineBroken    color: black; background: #FFa0a0 /* light-red */
-        StatusLineWeak      color: black; background: #FFFFa0 /* light-yellow */
-        StatusLineSecure    color: black; background: #a0a0FF /* light-blue */
-        StatusLineExtended  color: black; background: #a0FFa0 /* light-green */
-    `);
+    if (!highlight.get("StatusLineBroken")) {
+        highlight.loadCSS(`
+            StatusLineBroken    color: black; background: #FFa0a0 /* light-red */
+            StatusLineWeak      color: black; background: #FFFFa0 /* light-yellow */
+            StatusLineSecure    color: black; background: #a0a0FF /* light-blue */
+            StatusLineExtended  color: black; background: #a0FFa0 /* light-green */
+        `);
+    }
 
     //let statusLine = document.getElementById("liberator-statusline");
     let statusLine = document.getElementById("liberator-status");
