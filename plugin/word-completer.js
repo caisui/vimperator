@@ -189,6 +189,10 @@ xml`<plugin name="word-completer" version="0.0.1"
     function wordCompleter(context, extra) {
         context.anchored = false;
         context.compare = null;
+        var index = context.value.lastIndexOf("  ");
+        if (index > 0) {
+            context.advance(index + 2);
+        }
         context.match = hints._hintMatcher(context.filter);
 
         var words = context.getCache("words", function () getWords(context.window, extra));
