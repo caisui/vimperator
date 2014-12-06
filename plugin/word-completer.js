@@ -54,6 +54,26 @@ xml`<plugin name="word-completer" version="0.0.1"
         });
     };
     lazyGetter(this, "kanji", function () {
+        function q(a, ...b) {
+            console.log(a, b);
+            var res = "", n;
+            for (var i = 0, j = a.length - 1; i < j; i++) {
+                res += a[i];
+
+                n = b[i];
+                switch (typeof n) {
+                case "number": res += "\\u" + n.toString(16); break;
+                case "string": res += "\\u" + n; break;
+                }
+            }
+            return res + a[i];
+        }
+
+        if (options.expandtemplate) {
+            let fn = q;
+            q = function q1(a, b) fn(a.cooked, ...b);
+        }
+
         // http://ja.wikipedia.org/wiki/UNICODE#.E4.B8.80.E8.A6.A7
         var code = `
             U+2E80-2EFF
@@ -65,16 +85,48 @@ xml`<plugin name="word-completer" version="0.0.1"
             U+4E00-9FFF
             U+F900-FAFF
             U+FE30-FE4F
+        `;
+        var code2 = `
             U+20000-2A6DF
             U+2A700-2B73F
             U+2B740-2B81F
             U+2F800-2FA1F
         `;
-        var res = "[", match, re = /\sU\+([0-9A-F]+)-([0-9A-F]+)/g;
+        var res = "(?:[", match, re = /\sU\+([0-9A-F]+)-([0-9A-F]+)/g;
         while (match = re.exec(code)) {
-            res += `\u${match[1]}-\u${match[2]}`;
+            res += q`${match[1]}-${match[2]}`;
         }
-        res += "]{2,}";
+        res += "]";
+
+        re.lastIndex = 0;
+        function sur(c) {
+            c -= 0x10000;
+            return [
+                0xd800 | (c >> 10),
+                0xdc00 | (c & 1023),
+            ];
+        }
+
+        function $s(a, b) {
+            [a, b] = [parseInt(a, 16), parseInt(b, 16)];
+            if (a > b) [a, b] = [b, a];
+            [a, b] = [sur(a), sur(b)];
+
+            var diff = (b[0] - a[0]);
+            var DC = 0xdc00, DF=0xdfff;
+            if (diff === 0) return q`(?:${a[0]}[${a[1]}-${b[1]}])`;
+            var s = q`(?:${a[0]}[${a[1]}-${DF}])`;
+            if (diff > 1) {
+                s += q`|(?:[${a[0] + 1}-${b[0] - 1}][${DC}-${DF}])`;
+            }
+            s += q`|(?:${b[0]}[${DC}-${b[1]}])`;
+            return s;
+        }
+
+        while (match = re.exec(code2)) {
+            res += `|${$s(match[1], match[2])}`;
+        }
+        res += "){2,}";
         delete this.kanji;
         return this.kanji = res;
     });
