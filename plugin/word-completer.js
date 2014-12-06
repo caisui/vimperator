@@ -138,8 +138,10 @@ xml`<plugin name="word-completer" version="0.0.1"
                     Math.min(rect.height - frameRect.top, frameRect.height)
                 );
 
-                for (var text in iterScreenText(frame, frameExtra))
-                    yield text;
+                if (frameExtra.rect.width * frameExtra.rect.height > 0) {
+                    for (var text in iterScreenText(frame, frameExtra))
+                        yield text;
+                }
             }
         }
     }
