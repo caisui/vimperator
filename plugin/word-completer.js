@@ -83,10 +83,10 @@ xml`<plugin name="word-completer" version="0.0.1"
         if (name in liberator.globalVariables) return liberator.globalVariables[name];
 
         return "(" + [
-            `(?:ht|t|f)tps?://[-a-zA-Z0-9%/.]+(?:\?.+)?`, // url
-            `\d+/\d+/\d+`,
+            "(?:ht|t|f)tps?://[-a-zA-Z0-9%/.]+(?:\\?.+)?", // url
+            "\\d+/\\d+/\\d+",
             `[-a-zA-Z_0-9.]+[-a-zA-Z_0-9]`, // alphabet
-            `[\u30a0-\u30ff]{2,}`, //カタカナ
+            "[\\u30a0-\\u30ff]{2,}", //カタカナ
             kanji,
         ].join("|") + ")";
     });
