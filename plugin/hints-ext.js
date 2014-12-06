@@ -723,6 +723,11 @@ onEvent: function onEvent(event) {
         case "<BS>": {
             const self = this;
 
+            if (this._prevInput === "text") {
+                editor.executeCommand("cmd_deleteCharBackward", 1);
+                break;
+            }
+
             if (this._hintNumber > 0 && !this._usedTabKey) {
                 this._showActiveHint(null, this._hintNumber);
                 let str = this._hintNumberStr;
