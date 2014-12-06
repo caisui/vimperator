@@ -238,8 +238,9 @@ function complete(context, obj) {
     let selector = "";
     let attr;
     let separator = [" ", "+", "~", ">"];
+    var extra;
 
-    let [, type, sStart, sEnd, sFilter, extra] = parseSelector(0, context.filter);
+    [, type, sStart, sEnd, sFilter, extra] = parseSelector(0, context.filter);
 
     if (type === "err") {
         context.highlight(sEnd, sFilter, "SPELLCHECK");
@@ -271,7 +272,7 @@ function complete(context, obj) {
     context.advance(sFilter);
 
     let tags = [];
-    let attr = [];
+    attr = [];
     let clas = [];
     let ids = [];
 

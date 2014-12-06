@@ -117,7 +117,7 @@ xml`<plugin name="reload-image" version="0.0.1"
         let channel = ios.newChannelFromURI(ios.newURI(url, null, null));
         channel.notificationCallbacks = new callbacks();
         channel.loadFlags = channel.LOAD_BYPASS_CACHE | channel.LOAD_CALL_CONTENT_SNIFFERS;
-        let url = elem.ownerDocument.location.href;
+        url = elem.ownerDocument.location.href;
 
         if (channel instanceof Ci.nsIHttpChannel) {
             channel.referrer = ios.newURI(url, null, null);
