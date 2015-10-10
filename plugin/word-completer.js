@@ -276,7 +276,10 @@ xml`<plugin name="word-completer" version="0.0.1"
         if (oldMode === modes.COMMAND_LINE) {
             var box = commandline._commandWidget;
             var editor = box.editor;
-            let (comp = commandline._completions) comp && comp.previewClear();
+            {
+                let comp = commandline._completions;
+                comp && comp.previewClear();
+            }
             var str = box.value;
             var prompt = commandline._promptWidget.value;
             if (extended === modes.PROMPT) {
@@ -304,16 +307,19 @@ xml`<plugin name="word-completer" version="0.0.1"
         var start = box.selectionStart;
         var end = box.selectionEnd;
 
-        restore = let (func = restore) function wrap(callback) {
-            //xxx: after commandline hide
-            window.setTimeout(function () {
-                box.selectionStart = start;
-                box.selectionEnd = end;
-                calledWordInput = false;
-                func();
-                callback && callback();
-            }, 0);
-        };
+        restore = (function () {
+            let func = restore;
+            return function wrap(callback) {
+                //xxx: after commandline hide
+                window.setTimeout(function () {
+                    box.selectionStart = start;
+                    box.selectionEnd = end;
+                    calledWordInput = false;
+                    func();
+                    callback && callback();
+                }, 0);
+            };
+        })();
 
         commandline.input("word", function (args) {
             restore(function () {

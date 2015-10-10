@@ -64,10 +64,12 @@ let listPseudo = [
     "-moz-any"
 ];
 
-let listStyles = let (csssd = CSSStyleDeclaration.prototype)
-    (Object.getOwnPropertyNames ? Object.getOwnPropertyNames(csssd) : [a for (a in csssd)])
+let listStyles = (function () {
+    let csssd = CSSStyleDeclaration.prototype;
+    return (Object.getOwnPropertyNames ? Object.getOwnPropertyNames(csssd) : [a for (a in csssd)])
     .filter(function (css) csssd.__lookupGetter__(css))
     .map(function (css) css.replace(/[A-Z]/g, function (s) "-" + s.toLocaleLowerCase()));
+})();
 
 // { xxx:...
 //  ^<- offset pos

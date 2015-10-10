@@ -206,14 +206,13 @@ xml`<plugin name="reload-image" version="0.0.1"
 
     commands.addUserCommand(["reloadimage", "ri"], "reload images", function (args) {
         if (args.status) {
-            let (list = content.document.reloadImageCache) {
-                if (list && list.length) {
-                    liberator.echo(xml`<table><tbody>${
-                            template.map(list, function (inf) inf.message)
-                        }</tbody></table>`);
-                }
-                else liberator.echo("no reload images");
+            let list = content.document.reloadImageCache;
+            if (list && list.length) {
+                liberator.echo(xml`<table><tbody>${
+                        template.map(list, function (inf) inf.message)
+                    }</tbody></table>`);
             }
+            else liberator.echo("no reload images");
         }
         else {
             let list = [];

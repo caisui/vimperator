@@ -193,18 +193,17 @@ modules.userContext["${key}"].reg.swap10(str);
     function lastString(name) {
         let history = storage[name];
 
-        return let(len = history.length) len ?
-            history.get(history.length-1).value : "";
+        var len = history.length
+        return len ? history.get(history.length-1).value : "";
     }
 
     function scrollIntoView(e, left, top) {
         [e.scrollLeft ,e.scrollTop] = [left || 0, top || 0];
-        let( editor = e.editor || e.QueryInterface(Ci.nsIDOMNSEditableElement).editor) {
-            let ctrl = editor.selectionController;
-            ctrl.getSelection(Ci.nsISelectionController.SELECTION_NORMAL)
-                .QueryInterface(Ci.nsISelection2)
-                .scrollIntoView(Ci.nsISelectionController.SELECTION_ANCHOR_REGION, true, -1, -1);
-        }
+        let editor = e.editor || e.QueryInterface(Ci.nsIDOMNSEditableElement).editor;
+        let ctrl = editor.selectionController;
+        ctrl.getSelection(Ci.nsISelectionController.SELECTION_NORMAL)
+            .QueryInterface(Ci.nsISelection2)
+            .scrollIntoView(Ci.nsISelectionController.SELECTION_ANCHOR_REGION, true, -1, -1);
     }
 
     function commandlineStep(extra) {

@@ -162,9 +162,16 @@
             liberator.echoerr(ex);
         }
     });
-    let (m = hints._hintModes) m[hintMode] = m[longHintName];
+    {
+        let m = hints._hintModes;
+        m[hintMode] = m[longHintName];
+    }
 
-    styles.addSheet(false, "zoom-node", "*", zoomNodeStyle);
+    {
+        let name = "zoom-node";
+        if (!styles.get(false, "zoom-node"))
+            styles.addSheet(false, "zoom-node", "*", zoomNodeStyle);
+    }
 
     commands.addUserCommand(["noz[oomNode]"], "clear zoom node", function () {
         let attr = `[${vimpZoomAttr}] `;

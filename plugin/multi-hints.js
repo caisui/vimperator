@@ -192,15 +192,14 @@ xml`<plugin name="multi-hints" version="0.0.2"
         let mode = "multihint.action";
 
         if(!has(_hintModes, name)) {
-            let(names = [attr for(attr in _hintModes) if (attr.indexOf(name) === 0)]) {
-                if (names.length === 1) name = names[0];
-                else {
-                    if (names.length > 0)
-                        echoerr(`${name} is ambiguous. ${names.join(" ")}`);
-                    else
-                        echoerr(`unknown command: ${name}`);
-                    return;
-                }
+            let names = [attr for(attr in _hintModes) if (attr.indexOf(name) === 0)];
+            if (names.length === 1) name = names[0];
+            else {
+                if (names.length > 0)
+                    echoerr(`${name} is ambiguous. ${names.join(" ")}`);
+                else
+                    echoerr(`unknown command: ${name}`);
+                return;
             }
         }
         let cmd = _hintModes[name];
