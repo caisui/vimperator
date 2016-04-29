@@ -70,6 +70,19 @@ xml`<plugin name="multi-hints" version="0.0.2"
     const use_mapping  = has(global, "multiHintsMapping") ?  global.multiHintsMapping  === "true" : true;
     const use_register = has(global, "multiHintsRegister") ? global.multiHintsRegister === "true" : true;
 
+    function iter_fmap(it, func, self) {
+        var res = [];
+        var SKIP = {};
+        if (!self) self = this;
+        for (var val in it) {
+            var a = func.call(self, val, SKIP);
+            if (a !== SKIP) {
+                res.push(a);
+            }
+        }
+        return res;
+    }
+
     let _hintModes = {
         follow: {
             desc: "follow link",
@@ -103,7 +116,10 @@ xml`<plugin name="multi-hints" version="0.0.2"
         open: {
             desc: "open link new tab",
             default: "//a[@href]",
-            action: function (elems) liberator.open([e.href for([, e] in Iterator(elems)) if (e.href)], liberator.NEW_BACKGROUND_TAB)
+            action: function (elems) {
+                liberator.open(
+                    iter_fmap(Iterator(elems), ([,e], _) => e.href ? e.href : _), liberator.NEW_BACKGROUND_TAB);
+            },
         },
         javascript: {
             desc: "execute javascript",
@@ -192,7 +208,7 @@ xml`<plugin name="multi-hints" version="0.0.2"
         let mode = "multihint.action";
 
         if(!has(_hintModes, name)) {
-            let names = [attr for(attr in _hintModes) if (attr.indexOf(name) === 0)];
+            let names = iter_fmap(_hintModes, (attr, _) => attr.lastIndexOf(name, 0) === 0 ? attr : _);
             if (names.length === 1) name = names[0];
             else {
                 if (names.length > 0)
@@ -254,9 +270,9 @@ xml`<plugin name="multi-hints" version="0.0.2"
         literal: 1,
         completer: function (context, args) {
             if(args.length < 2)
-                context.completions = [[name, e.desc] for([name, e] in Iterator(_hintModes))];
+                context.completions = iter_fmap(Iterator(_hintModes), ([name, e]) => [name, e.desc]);
             else {
-                let list = [[n.value, n.host] for([, n] in storage[historyQuery])];
+                let list = iter_fmap(storage[historyQuery], ([,n]) => [n.value, n.host]);
                 list.reverse();
                 context.completions = list;
             }
@@ -268,14 +284,14 @@ xml`<plugin name="multi-hints" version="0.0.2"
         function (arg) {
             let space = " ";
             if (!has(_hintModes, arg)) {
-                let names = [attr for(attr in _hintModes) if (attr.indexOf(arg) === 0)];
+                let names = iter_fmap(_hintModes, (attr, _) => attr.lastIndexOf(arg) === 0 ? attr : _);
                 if (arg === "<Tab>") {
                     commandline.input("mh:", function (arg) {
                         commandline.open(":", "multihints " + arg + " ", modes.EX)
                     },
                     {
                         completer: function (context) {
-                            context.completions = [[name, e.desc] for([name, e] in Iterator(_hintModes))];
+                            context.completions = iter_fmap(Iterator(_hintModes), ([name, e]) => [name, e.desc]);
                         }
                     });
                     return;
@@ -305,7 +321,7 @@ xml`<plugin name="multi-hints" version="0.0.2"
                 action: function (tag) {
                     let self = this;
                     tag = tag || "*";
-                    tag = [ a.trim() for([, a] in Iterator(tag.split(",")))];
+                    tag = iter_fmap(Iterator(tag.split(",")), a => a[0].trim());
 
                     hints.addMode(prompt, "select node:", function () { }, function () util.makeXPath(tag));
                     hints._hintMode = hints._hintModes[prompt];
@@ -329,16 +345,15 @@ xml`<plugin name="multi-hints" version="0.0.2"
                             for (; elem; elem = elem.parentNode) yield elem
                         }
 
-                        let parentId = [e.id for (e in parent(elems[0].parentNode)) if (e.id)];
-                        let classList = [c for (c in util.Array.itervalues(elems[0].classList))];
+                        let parentId = iter_fmap(parent(elems[0].parentNode), ({id}, _) => id ? id : _);
+                        let classList = [...elems[0].classList];
 
                         for (let i in util.range(1, elems.length)) {
                             let elem = elems[i];
 
-                            parentId = [e.id for (e in parent(elem.parentNode)) if (e.id)]
-                                .filter(function(n) parentId.indexOf(n) >= 0);
-                            classList = [c for (c in util.Array.itervalues(elem.classList))]
-                                .filter(function(n) classList.indexOf(n) >= 0);
+                            parentId = iter_fmap(parent(elem.parentNode),
+                                ({id}, _) => id && parentId.indexOf(id) >= 0 ? id : _);
+                            classList = [...elem.classList].filter(s => classList.indexOf(s) >= 0);
                         }
 
                         let res = "";
