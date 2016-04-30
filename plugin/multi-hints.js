@@ -241,7 +241,7 @@ xml`<plugin name="multi-hints" version="0.0.2"
             commandline.close();
         }
         commandline.setTimeout(function () {
-            commandline.input(`[${selector}]:`, function (arg){
+            commandline.input(`${cmd.desc}[${util.clip(selector, 16)}]`, function (arg){
                 let args = [];
                 let list = hints._pageHints;
                 let matcher = new MulitHintMatcher(arg);
