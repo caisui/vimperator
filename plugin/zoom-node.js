@@ -1,4 +1,5 @@
 (function () {
+    let self = this;
     let hintMode = liberator.globalVariables.zoomNode || "z";
     let list = ["div", "iframe", "table", "textarea", "ul", "ol", "pre", "p", "main", "article"];
     const vimpZoomAttr = "vimp-zoom";
@@ -58,7 +59,7 @@
     ;
     var frameSetMap = new WeakMap;
 
-    hints.addMode(longHintName, "zoom", function (elem, href, count) {
+    function action(elem, href, count) {
         try {
             let doc = elem.ownerDocument;
             let value = count || 1;
@@ -116,7 +117,7 @@
                             var p = f.parentNode;
                             if (isFrame(f)) {
                                 if (p instanceof HTMLFrameSetElement) {
-                                    var frames = [e for(e of Array.slice(p.childNodes)) if (isFrame(e))];
+                                    var frames = [for(e of Array.slice(p.childNodes)) if (isFrame(e)) e];
                                     var index = frames.indexOf(f);
                                     if (!frameSetMap.has(p)) {
                                         frameSetMap.set(p, {
@@ -129,9 +130,9 @@
                                     } else if (index >= 0) {
                                         var attr = p.rows ? "rows" : "cols";
                                         p[attr] = [
-                                            ...[0 for(i of Array(index))],
+                                            ...[for(i of Array(index)) 0],
                                             "*",
-                                            ...[0 for(i of Array(frames.length - index - 1))],
+                                            ...[for(i of Array(frames.length - index - 1)) 0],
                                         ];
                                     }
                                 }
@@ -144,7 +145,9 @@
         } catch (ex) {
             liberator.echoerr(ex);
         }
-    },
+    }
+    self.do_action = action;
+    hints.addMode(longHintName, "zoom", action,
     function (win) {
         if (!win) return util.makeXPath(list);
         try{
@@ -153,7 +156,7 @@
             let elem;
             let attr = `[${vimpZoomAttr}] `;
             if (win.document.querySelector(attr)) {
-                selector = attr + "," + [attr + v for([, v] in Iterator(list))].join(",");
+                selector = attr + "," + [for(v of Iterator(list)) (attr + v[1])].join(",");
             } else {
                 selector = list.join(",");
             }
@@ -179,4 +182,4 @@
         e && hints._hintModes[longHintName].action(e);
     }, {
     }, true);
-})();
+}).call(this);

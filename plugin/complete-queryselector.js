@@ -22,7 +22,7 @@ xml`<plugin name="complete-queryselector" version="0.0.2"
     </item>
 </plugin>`;
 //}}}
-
+let JavaScript = javascript.__class__;
 JavaScript.completers["querySelector"] = javascriptCompleterQuerySelector;
 JavaScript.completers["querySelectorAll"] = javascriptCompleterQuerySelector;
 
@@ -66,7 +66,7 @@ let listPseudo = [
 
 let listStyles = (function () {
     let csssd = CSSStyleDeclaration.prototype;
-    return (Object.getOwnPropertyNames ? Object.getOwnPropertyNames(csssd) : [a for (a in csssd)])
+    return Object.getOwnPropertyNames(csssd)
     .filter(function (css) csssd.__lookupGetter__(css))
     .map(function (css) css.replace(/[A-Z]/g, function (s) "-" + s.toLocaleLowerCase()));
 })();

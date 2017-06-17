@@ -1,5 +1,6 @@
 // vim: set et sw=4 ts=4 :
 (function() {
+    let {File} = io;
     //https://developer.mozilla.org/index.php?title=Ja/Code_snippets/File_I%2F%2FO#section_3
     const list = [
         "ProfD",
@@ -72,8 +73,9 @@
       var dir = propertiesFile.ProfD.parent;
       let it = dir.directoryEntries;
       context.completions = [
-        [f.leafName, f.path] for(f in iter(dir.directoryEntries))
+        for(f of iter(dir.directoryEntries))
             if(f.QueryInterface(Ci.nsIFile) && f.isDirectory())
+                [f.leafName, f.path]
       ];
     }
 

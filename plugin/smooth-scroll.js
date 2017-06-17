@@ -295,7 +295,7 @@
 
     if (!liberator.globalVariables.no_smooth_scroll_space_hack) {
         const query = ["button", ...[
-            `input[type="${t}"]` for (t of [
+            for (t of [
                 "button",
                 "checkbox",
                 "file",
@@ -303,7 +303,9 @@
                 "radio",
                 "reset",
                 "submit",
-            ])]].join(",");
+            ])
+                `input[type="${t}"]`
+            ]].join(",");
         config.ignoreKeys["<Space>"] &= ~modes.NORMAL;
         mappings.addUserMap([modes.NORMAL], ["<Space>"], "scroll page(override space map)", function (count) {
             var elem = liberator.focus;

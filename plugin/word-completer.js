@@ -1,5 +1,5 @@
 // vim: set fdm=marker:
-if (parseFloat(Application.version) >= 4) {
+if (Services.vc.compare(Services.appinfo.version, "4") > 0) {
     var INFO = //{{{
 xml`<plugin name="word-completer" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/word-completer.js"

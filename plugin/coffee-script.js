@@ -20,6 +20,7 @@ xml`<plugin name="coffee-script" version="0.0.1"
 </plugin>`;
 //}}}
 
+var {File} = io;
 var defaultPath = "~/vimperator/coffee-script.js";
 
 this.__defineGetter__("CoffeeScript", function () {
@@ -78,33 +79,4 @@ completion.setFunctionCompleter([loadFile], [completion.file]);
             liberator.echoerr(ex);
         }
     }, extra, true);
-}
-
-var dispose = [];
-dispose.__defineSetter__("$push", function (v) this.push(v));
-
-{
-    let patch = function (obj, name, callback, context) {
-        let code = obj[name].toString();
-        obj[name] = liberator.eval("(" + callback(code) + ")", context || obj[name]);
-        dispose.$push = function () delete obj[name];
-    };
-
-    let src = "else if (/\\.css$/.test(filename)) {";
-    patch(io, "source", function (s) s.replace(src, `
-        else if (/\.coffee$/.test(filename)) {
-            plugins.coffeeScript.loadScript(uri.spec, Script(file));
-        ` + src));
-
-    patch(liberator, "loadPlugins", function (s) s
-        .replace("js|vimp", "js|vimp|coffee")
-        .replace("{js,vimp}", "{js,vimp,coffee}", "g"));
-
-    window.setTimeout(function () liberator.loadPlugins(), 0);
-}
-delete dispose.$push;
-
-function onUnload() {
-    var f;
-    while (f = dispose.pop()) f();
 }

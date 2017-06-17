@@ -200,7 +200,7 @@ xml`<plugin name="reload-image" version="0.0.1"
                     yield img;
                 }
             }
-            Array.prototype.push.apply(stack, [w for (w in util.Array.itervalues(win.frames))]);
+            Array.prototype.push.apply(stack, [for (w of util.Array.itervalues(win.frames)) w]);
         }
     }
 

@@ -118,8 +118,8 @@ xml`<plugin name="hints-ext" version="0.0.3"
 //}}}
 
 (function () {
-if (parseFloat(Application.version) < 4) return;
-
+var Hints = modules.hints.__class__;
+var Option = options.get("hinttags").__class__;
 var original = modules.hints;
 this.onUnload = function onUnload() {
     delete this.onUnload;
@@ -184,6 +184,7 @@ styles.addSheet(true, "HintExtStyle", "*", `
 }
 
 HintsExt.prototype = {
+__proto__: Hints.prototype,
 get original() original,
 init: function (hints) {
     this._reset();
@@ -326,6 +327,8 @@ _showHints: function () {
             item.label.style.display = display;
         }
 
+        this._hintNumberStr = "";
+
         //XXX: _num2chars が validHints.length 依存のため
         for (let i = 0, j = validHints.length; i < j; ++i) {
             let item = validHints[i];
@@ -423,7 +426,7 @@ _iterTags: function iterTag(win, screen) {
     }
     if (typeof(selector) == "string") {
         if (selector[0] == "/") { // xpath
-            matcher = makeMatcher((e for(e in util.evaluateXPath(selector, doc, null, true))));
+            matcher = makeMatcher((for(e of iter(util.evaluateXPath(selector, doc, null, true))) e));
         } else { // selector
             matcher = function (node) node.mozMatchesSelector(selector);
         }
@@ -861,7 +864,7 @@ onEvent: function onEvent(event) {
     moveActiveHint: function moveActiveHint(count) {
         if (!count) count = 10;
         var startTime = Date.now();
-        var items = [i for(i of this._validHints) if (i.label.style.display === "")];
+        var items = [for(i of this._validHints) if (i.label.style.display === "") i];
         var last = items.length - 1;
         var oldNumber = this._hintNumber || 1;
 
@@ -1098,6 +1101,16 @@ onEvent: function onEvent(event) {
         return getUtils(win).nodesFromRect(
             screen.left, screen.top, 0, screen.right, screen.bottom, 0, true, true);
     },
+    canHandleKeyHack: function canHandleKey(key) {
+        return (
+            ["<Return>", "<Tab>", "<S-Tab>", mappings.getMapLeader()].indexOf(key) > -1 ||
+            (key == "<BS>" && hints._prevInput === "number") ||
+            (
+                hints._isHintNumber(key) &&
+                !hints.escNumbers
+            )
+        );
+    },
 };
 this.Rect = HintsExt.Rect = function (left, top, right, bottom) ({
     left: left,
@@ -1114,9 +1127,6 @@ let src = Hints.prototype._processHints.toSource()
 ;
 
 HintsExt.prototype._processHints = liberator.eval("(function() " + src + ")()");
-
-["_num2chars", "_chars2num", "_checkUnique", "_onInput", "_hintMatcher", "_isHintNumber1", "hide", "setTimeout", "addMode", "_updateStatusline", "_getInputHint", "startExtendedHint"]
-.forEach(function (a) HintsExt.prototype[a] = Hints.prototype[a]);
 
 ////input[not(@type='hidden')] | //xhtml:input[not(@type='hidden')] | //a | //xhtml:a | //area | //xhtml:area | //iframe | //xhtml:iframe | //textarea | //xhtml:textarea | //button | //xhtml:button | //select | //xhtml:select | //*[@onclick or @onmouseover or @onmousedown or @onmouseup or @oncommand or @role='link']
 let hinttags = HintsExt.prototype.hinttags
@@ -1277,6 +1287,7 @@ case 1: {
         else // we have a unique hint
             this._processHints(true);
     };
+    hints.canHandleKey = hints.canHandleKeyHack;
 } break; //}}}
 case 2: {
     hints._chars2num = function(chars) {
@@ -1334,6 +1345,7 @@ case 2: {
         else // we have a unique hint
             this._processHints(true);
     };
+    hints.canHandleKey = hints.canHandleKeyHack;
 }break;
 }
 }).call(this);
