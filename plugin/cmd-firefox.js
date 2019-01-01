@@ -1,6 +1,8 @@
 // vim: set et sw=4 ts=4 :
 (function() {
     let {File} = io;
+    var appName = Services.appinfo.name.toLowerCase();
+
     //https://developer.mozilla.org/index.php?title=Ja/Code_snippets/File_I%2F%2FO#section_3
     const list = [
         "ProfD",
@@ -53,10 +55,10 @@
                 file = file.parent;
             }
 
-            file.appendRelativePath("firefox.exe");
+            file.appendRelativePath(appName + ".exe");
 
             if (!file || !file.exists()) {
-                liberator.echoerr(`not found firefox.exe!`);
+                liberator.echoerr(`not found ${appName}.exe!`);
                 return;
             }
             let proc = Cc["@mozilla.org/process/util;1"].createInstance(Ci.nsIProcess);
@@ -84,8 +86,7 @@
         [["--private-mode", "-p"], commands.OPTION_NOARG],
     ];
 
-    commands.addUserCommand(["firefox", "fx"], "run firefox", exec_firefox, { argCount: "1",
-        literal: 0,
+    commands.addUserCommand([appName, "fx"], "run firefox", exec_firefox, { argCount: "1",
         completer: completer_profile,
         options: [
             [["-console", "-c"] , commands.OPTION_NOARG, null],
