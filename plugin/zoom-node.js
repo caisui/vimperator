@@ -1,46 +1,41 @@
+"use strict";
+
 (function () {
     let self = this;
     let hintMode = liberator.globalVariables.zoomNode || "z";
     let list = ["div", "iframe", "table", "textarea", "ul", "ol", "pre", "p", "main", "article"];
     const vimpZoomAttr = "vimp-zoom";
     const vimpZoomScreenAttr = vimpZoomAttr + "-screen";
+    const vimpZoomRootAttr = `${vimpZoomAttr}-root`;
     const longHintName = "zoomNode";
 
     let zoomNodeStyle = `
     [@attr] {
-        position: fixed !important;
-        left: 1em !important;
-        right: 1em !important;
-        top: 1em !important;
-        bottom: 1em !important;
-        min-width: 95% !important;
-        min-height: 95% !important;
+        position: fixed!important;
+        left: 1ex !important;
+        top: 1ex !important;
         max-height: 100% !important;
         max-width: 100% !important;
-        width: auto !important;
-        height: auto !important;
+        width:  calc(100vw - 2ex) !important;
+        height:  calc(100vh - 2ex) !important;
         z-index: 60001 !important;
-        border:1px solid gray;
-        outline: 1em solid rgba(128,128,128,.5)!important;
+        border:1px solid gray!important;
+        outline: 1ex solid rgba(222, 222, 222, .7)!important;
         overflow: auto !important;
-        padding: .5em!important;
+        padding: 0!important;
+        margin: 0!important;
     }
     table[@attr] {
         display: block!important;
     }
-    [@attr='1'],
-    [@attr='2'] {
-        margin: 0 !important;
-    }
 
     [@attr='1'] {
-        background-color: rgba(255,255,255,.99);
     }
     [@attr='2'] {
-        background-color: rgba(0,0,0,.99);
+        background-color: rgba(0,0,0,.99)!important;
     }
     [@attr='3'] {
-        background-color: white;
+        background-color: white!important;
     }
     [@attr='4'] {
         background-color: black;
@@ -53,18 +48,23 @@
         bottom: 0;
         z-index: 60000;
     }
+    [@attr_root] {
+        position:fixed;
+        top: 101vh!important;
+    }
     `
     .replace(/@attrb/g, vimpZoomScreenAttr)
+    .replace(/@attr_root/g, vimpZoomRootAttr)
     .replace(/@attr/g, vimpZoomAttr)
     ;
     var frameSetMap = new WeakMap;
 
-    function action(elem, href, count) {
+    hints.addMode(longHintName, "zoom", function (elem, href, count) {
         try {
             let doc = elem.ownerDocument;
             let value = count || 1;
 
-            function isFrame(e) e instanceof HTMLFrameElement || e instanceof HTMLFrameSetElement
+            function isFrame(e) { return e instanceof HTMLFrameElement || e instanceof HTMLFrameSetElement; }
 
             var query = `[${vimpZoomAttr}]`;
             if (elem.mozMatchesSelector(query)) {
@@ -81,6 +81,9 @@
                         for (let e of win.document.querySelectorAll(`[${vimpZoomScreenAttr}]`)) {
                             e.parentNode.removeChild(e);
                         }
+                        for (let e of win.document.querySelectorAll(`[${vimpZoomRootAttr}]`)) {
+                            e.removeAttribute(vimpZoomRootAttr);
+                        }
                         for (let e of win.document.querySelectorAll("frameset")) {
                             if (frameSetMap.has(e)) {
                                 var obj = frameSetMap.get(e);
@@ -92,13 +95,11 @@
                 }
             } else {
                 for (var e = elem; e; e = e.ownerDocument.defaultView.frameElement) {
-                    //elem.setAttributeNS(NS, "zoom-frame", value);
                     e.setAttribute(vimpZoomAttr, value);
 
-                    //if (isFrame(e)) continue;
-                    //let div = e.ownerDocument.createElement("div");
-                    //div.setAttribute(vimpZoomScreenAttr, "");
-                    //e.parentNode.appendChild(div);
+                    if (e.ownerDocument.documentElement !== e) {
+                        e.ownerDocument.documentElement.setAttribute(vimpZoomRootAttr, true);
+                    }
                 }
 
                 let selection = doc.defaultView.getSelection();
@@ -117,7 +118,9 @@
                             var p = f.parentNode;
                             if (isFrame(f)) {
                                 if (p instanceof HTMLFrameSetElement) {
-                                    var frames = [for(e of Array.slice(p.childNodes)) if (isFrame(e)) e];
+                                    var frames = [];
+                                    for(let e of Array.slice(p.childNodes))
+                                        if (isFrame(e)) frames.push(e)
                                     var index = frames.indexOf(f);
                                     if (!frameSetMap.has(p)) {
                                         frameSetMap.set(p, {
@@ -129,11 +132,10 @@
                                         liberator.echoerr("do not support rows and cols");
                                     } else if (index >= 0) {
                                         var attr = p.rows ? "rows" : "cols";
-                                        p[attr] = [
-                                            ...[for(i of Array(index)) 0],
-                                            "*",
-                                            ...[for(i of Array(frames.length - index - 1)) 0],
-                                        ];
+                                        let aa = p[attr] = [];
+                                        for(let i of Array(index)) aa.push(0);
+                                        aa.push("*");
+                                        for(let i of Array(frames.length - index - 1)) aa.push(0);
                                     }
                                 }
                             }
@@ -145,26 +147,33 @@
         } catch (ex) {
             liberator.echoerr(ex);
         }
-    }
-    self.do_action = action;
-    hints.addMode(longHintName, "zoom", action,
-    function (win) {
+    },
+    function (win, screen) {
         if (!win) return util.makeXPath(list);
         try{
-            let doc = win.document;
-            let selector;
-            let elem;
-            let attr = `[${vimpZoomAttr}] `;
-            if (win.document.querySelector(attr)) {
-                selector = attr + "," + [for(v of Iterator(list)) (attr + v[1])].join(",");
-            } else {
-                selector = list.join(",");
+            var attr = `[${vimpZoomAttr}] `;
+            var e = win.document.querySelector(attr);
+            var ignore = !e;
+            var array = hints.nodesFromRect(win, screen);
+            array = Array.slice(array, 0, win.top === win ? -2 : array.length);
+            var res = ignore ? [] : [e];
+            var h = (screen.bottom - screen.top) / 2;
+            var type = Node.ELEMENT_NODE;
+            attr += "*";
+
+            for (var e of array) {
+                if (e.nodeType === type && (ignore || e.mozMatchesSelector(attr))
+                    && (e.clientHeight > h || e.scrollTopMax || e.scrollLeftMax)) {
+                    res[res.length] = e;
+                }
             }
-            return doc.querySelectorAll(selector);
+            res.sort((a, b) => a.compareDocumentPosition(b) & 0x2);
+            return res;
         } catch (ex) {
             liberator.echoerr(ex);
         }
     });
+
     {
         let m = hints._hintModes;
         m[hintMode] = m[longHintName];
@@ -172,8 +181,7 @@
 
     {
         let name = "zoom-node";
-        if (!styles.get(false, "zoom-node"))
-            styles.addSheet(false, "zoom-node", "*", zoomNodeStyle);
+        styles.addSheet(false, "zoom-node", "*", zoomNodeStyle);
     }
 
     commands.addUserCommand(["noz[oomNode]"], "clear zoom node", function () {
