@@ -1,4 +1,6 @@
 // vim: set et sw=4 ts=4 :
+"use strict";
+
 (function() {
     let {File} = io;
     var appName = Services.appinfo.name.toLowerCase();
@@ -22,9 +24,9 @@
     ];
     let properties = Cc["@mozilla.org/file/directory_service;1"].getService(Ci.nsIProperties);
     let propertiesFile={};
-    for (let [,attr] in Iterator(list)) {
+    for (let attr of list) {
         let id = attr;
-        propertiesFile.__defineGetter__(id,function() properties.get(id,Ci.nsIFile).QueryInterface(Ci.nsILocalFile));
+        propertiesFile.__defineGetter__(id, function() { return properties.get(id, Ci.nsIFile).QueryInterface(Ci.nsILocalFile); });
     }
 
     function exec_firefox(args) {
@@ -78,11 +80,9 @@
     function completer_profile(context) {
       var dir = propertiesFile.ProfD.parent;
       let it = dir.directoryEntries;
-      context.completions = [
-        for(f of iter(dir.directoryEntries))
-            if(f.QueryInterface(Ci.nsIFile) && f.isDirectory())
-                [f.leafName, f.path]
-      ];
+      var aa = [];  for(let f of iter(dir.directoryEntries))
+            if(f.QueryInterface(Ci.nsIFile) && f.isDirectory()) aa.push([f.leafName, f.path]);
+      context.completions = aa;
     }
 
     function completer(context, args) {
