@@ -50,6 +50,10 @@
             if (vimparams.length > 0)
                 params.push("-vimperator", vimparams.join(" "));
 
+            for(var i = 1, j = args.length; i < j; i++) {
+                params.push(args[i]);
+            }
+
             let file = propertiesFile.CurProcD;
             if (file.leafName === "browser") {
                 file = file.parent;
@@ -81,13 +85,25 @@
       ];
     }
 
+    function completer(context, args) {
+        var {completeArg} = args;
+        if (completeArg === 0) completer_profile(context);
+        else {
+            context.fork("lo", 0, this, context => {
+                context.title = ["location"];
+                context.completions = [[content.location.href, ""]];
+            });
+            completion.history(context.fork("his", 0, this));
+        }
+    }
+
     const op_fx = [
         [["-console", "-c"],       commands.OPTION_NOARG],
         [["--private-mode", "-p"], commands.OPTION_NOARG],
     ];
 
-    commands.addUserCommand([appName, "fx"], "run firefox", exec_firefox, { argCount: "1",
-        completer: completer_profile,
+    commands.addUserCommand([appName, "fx"], "run firefox", exec_firefox, { argCount: "1+",
+        completer,
         options: [
             [["-console", "-c"] , commands.OPTION_NOARG, null],
             [["--private-mode", "-p"] , commands.OPTION_NOARG, null],
