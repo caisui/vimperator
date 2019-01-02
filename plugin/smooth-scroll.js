@@ -22,8 +22,8 @@
             x: ["scrollLeft", "scrollLeftMax"],
             y: ["scrollTop",  "scrollTopMax"],
         },
-        get duration() liberator.globalVariables.smooth_scroll_duration || 300,
-        get pos() this._end,
+        get duration() { return liberator.globalVariables.smooth_scroll_duration || 300; },
+        get pos() { return this._end; },
         set pos(value) {
             if (this._end === value) {
                 return;
@@ -74,8 +74,8 @@
             }
             return res;
         },
-        getX: function (e) this.get(e, "x"),
-        getY: function (e) this.get(e, "y"),
+        getX: function (e) { return this.get(e, "x"); },
+        getY: function (e) { return this.get(e, "y"); },
         scrollTo: function (e, x, y) {
             if (x != null) {
                 this.get(e, "x").pos = x;
@@ -294,23 +294,22 @@
     }
 
     if (!liberator.globalVariables.no_smooth_scroll_space_hack) {
-        const query = ["button", ...[
-            for (t of [
-                "button",
-                "checkbox",
-                "file",
-                "image",
-                "radio",
-                "reset",
-                "submit",
-            ])
-                `input[type="${t}"]`
-            ]].join(",");
+        let query = ["button"];
+        for (t of [
+            "button",
+            "radio",
+            "checkbox",
+            "file",
+            "submit",
+            "reset",
+            "image",
+        ]) query.push(`input[type="${t}"]`);
+        query = query.join(", ");
         config.ignoreKeys["<Space>"] &= ~modes.NORMAL;
         mappings.addUserMap([modes.NORMAL], ["<Space>"], "scroll page(override space map)", function (count) {
             var elem = liberator.focus;
             // TODO: screen out の場合も無視
-            if (elem && elem.mozMatchesSelector(query)) {
+            if (elem && elem.matches(query)) {
                 return;
             }
 
