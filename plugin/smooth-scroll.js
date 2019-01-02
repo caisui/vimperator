@@ -297,7 +297,7 @@
 
     if (!liberator.globalVariables.no_smooth_scroll_space_hack) {
         let query = ["button"];
-        for (t of [
+        for (let t of [
             "button",
             "radio",
             "checkbox",
