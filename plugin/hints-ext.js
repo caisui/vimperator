@@ -130,7 +130,8 @@ function HintsExt() {
     this.init();
 }
 
-function getUtils(win) win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils)
+function getUtils(win) { return win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils); }
+this.getUtils = getUtils;
 function getCache(obj, key, fn) {
     return obj[key] || (obj[key] = (fn || Object)());
 }
@@ -185,20 +186,21 @@ styles.addSheet(true, "HintExtStyle", "*", `
 
 HintsExt.prototype = {
 __proto__: Hints.prototype,
-get original() original,
+get original() { return original; },
 init: function (hints) {
     this._reset();
 },
-get _hintModes() getCache(userContext, "hints._hintModes@cache", function () {
+toString: () => "[class hints-ext plugin]",
+get _hintModes() { return getCache(userContext, "hints._hintModes@cache", function () {
     var dest = {};
     var src = original._hintModes;
     for (var a in src) {
         dest[a] = src[a];
     }
     return dest;
-}),
-get simpleMaps() getCache(userContext,"hints.simpleMaps@cache", Array),
-get previnput() this._prevInput,
+});},
+get simpleMaps() { return getCache(userContext,"hints.simpleMaps@cache", Array); },
+get previnput() { return this._prevInput; },
 _reset: function () {
     statusline.updateField("input", "");
     this._hintString = "";
@@ -276,6 +278,7 @@ _show: function _show(kwargs) {
     liberator.log(`hints show: ${Date.now() - time}ms`);
     } catch (ex) {
         Cu.reportError(ex);
+        console.error(ex);
         this._reset();
     }
 },
@@ -379,7 +382,7 @@ _getOnscreenElements1: function (win, screen) {
     let c = Array.slice(doc.getElementsByTagName("area"));
     if (c.length > 0) Array.splice.apply(null, [b, b.length, 0].concat(c));
 
-    b.sort(function (a, b) a.compareDocumentPosition(b) & 0x2);
+    b.sort((a, b) => a.compareDocumentPosition(b) & 0x2);
     return b;
 },
 _getOnscreenElements2: function (win, screen) {
@@ -408,11 +411,11 @@ _getOnscreenElements2: function (win, screen) {
     b = [...uniq, ...doc.getElementsByTagName("area")];
     //if (c.length > 0) Array.splice.apply(null, [uniq, uniq.size, 0].concat(c));
 
-    b.sort(function (a, b) a.compareDocumentPosition(b) & 0x2);
+    b.sort((a, b) => a.compareDocumentPosition(b) & 0x2);
     return b;
 },
 fixRect0: true,
-_iterTags: function iterTag(win, screen) {
+_iterTags: function* iterTag(win, screen) {
     const doc = win.document;
     var nodeList = this["_getOnscreenElements" + (this.fixRect0 ? 2 : 1)](win, screen);
 
@@ -426,9 +429,12 @@ _iterTags: function iterTag(win, screen) {
     }
     if (typeof(selector) == "string") {
         if (selector[0] == "/") { // xpath
-            matcher = makeMatcher((for(e of iter(util.evaluateXPath(selector, doc, null, true))) e));
+            matcher = makeMatcher((function* () {
+                for (var e, res = util.evaluateXPath(selector, doc, null, true); e = res.iterateNext();)
+                    yield e;
+            })());
         } else { // selector
-            matcher = function (node) node.mozMatchesSelector(selector);
+            matcher = node => node.mozMatchesSelector(selector);
         }
     } else if (selector instanceof Function) {
         matcher = selector;
@@ -552,46 +558,59 @@ _getAreaOffset: function (elem, rect) {
         return rect;
     }
 },
+// https://developer.mozilla.org/ja/docs/Working_with_windows_in_chrome_code#.E5.AD.90.E3.82.A6.E3.82.A3.E3.83.B3.E3.83.89.E3.82.A6.E3.81.8B.E3.82.89.E3.83.88.E3.83.83.E3.83.97.E3.83.AC.E3.83.99.E3.83.AB.E3.83.89.E3.82.AD.E3.83.A5.E3.83.A1.E3.83.B3.E3.83.88.E3.81.AE.E8.A6.81.E7.B4.A0.E3.81.AB.E3.82.A2.E3.82.AF.E3.82.BB.E3.82.B9.E3.81.99.E3.82.8B
+getRootWindow: function getRootWindow(win) {
+    return win.QueryInterface(Ci.nsIInterfaceRequestor)
+        .getInterface(Ci.nsIWebNavigation)
+        .QueryInterface(Ci.nsIDocShellTreeItem)
+        .rootTreeItem.QueryInterface(Ci.nsIInterfaceRequestor)
+        .getInterface(Ci.nsIDOMWindow)
+},
+createFrameElement: function (parent, win, tagName="div") {
+    var box = parent.ownerDocument.createElementNS(XHTML, tagName);
+    box.setAttributeNS(NS, "highlight", "HintExtFrameElem");
+    box.x = win.mozInnerScreenX;
+    box.y = win.mozInnerScreenY;
+    var diffX = box.x - parent.x;
+    var diffY = box.y - parent.y;
+    box.left = parent.left + diffX
+    box.top  = parent.top  + diffY
+    box.style.cssText =`
+        left:   ${diffX}px;
+        top:    ${diffY}px;
+        width:  ${win.innerWidth}px;
+        height: ${win.innerHeight}px;
+    `;
+    parent.appendChild(box);
+    return box;
+},
 createRootElement: function getRootElement(win) {
-    var stack = [];
-    var doc = win.document;
-    var stack = [];
-    var du = Cc["@mozilla.org/inspector/dom-utils;1"].getService(Ci.inIDOMUtils);
-    var e = doc;
-    while (e = du.getParentForNode(e, true)) {
-        stack.push(e);
-        doc = e = e.ownerDocument;
-    }
+    var rootWin = this.getRootWindow(win);
+    var doc = rootWin.document;
+
     var root = doc.createElementNS(XHTML, "div");
     root.setAttributeNS(NS, "highlight", "HintExtRootElem");
-
-    var cur = root;
-    while (e = stack.pop()) {
-        var box = e.ownerDocument.createElementNS(XHTML, "div");
-        box.setAttributeNS(NS, "highlight", "HintExtFrameElem");
-        var rect = e.getBoundingClientRect();
-        box.style.cssText =`
-            left:   ${rect.left}px;
-            top:    ${rect.top}px;
-            width:  ${rect.width}px;
-            height: ${rect.height}px;
-        `;
-        cur.appendChild(box);
-        cur = box;
-    }
     root.style.display = "none";
-    (doc.body || doc.documentElement || doc.querySelector("body")).appendChild(root);
+    root.left = root.top = 0;
+    root.x = rootWin.mozInnerScreenX;
+    root.y = rootWin.mozInnerScreenY;
     this._hintRoot = root;
-    return [root, cur];
+
+    (doc.body || doc.querySelector("body") || doc.documentElement).appendChild(root);
+
+    let cur = this.createFrameElement(root, win);
+
+    return cur;
 },
 _generate: function _generate(win, screen) {
     if (!win) win = config.browser.contentWindow;
     const doc = win.document;
     if (!screen)
-        screen = {top: 0, left: 0, bottom: win.innerHeight, right: win.innerWidth, root: this.createRootElement(win)};
-    else if (!screen.root) {
-        screen.root = this.createRootElement(win);
-    }
+        screen = {top: 0, left: 0, bottom: win.innerHeight, right: win.innerWidth};
+
+    var root = screen.parent
+                ? this.createFrameElement(screen.parent, win)
+                : this.createRootElement(win);
 
     if (screen.right <= 0 || screen.bottom <= 0) return;
 
@@ -600,7 +619,7 @@ _generate: function _generate(win, screen) {
         var obj = hintMode.generate(win, screen);
         if (obj.toString() === "[object Generator]");
         else if ("length" in obj)
-            obj = (function _arrayLike(a) {var i; for(i = 0, j = a.length; i < j; i++) yield a[i];})(obj);
+            obj = (function* _arrayLike(a) {var i; for(i = 0, j = a.length; i < j; i++) yield a[i];})(obj);
     } else {
         obj = this._iterTags(win, screen);
     }
@@ -609,14 +628,13 @@ _generate: function _generate(win, screen) {
     var start = pageHints.length;
     var baseNode = util.xmlToDom(
         xml`<div highlight="HintExtElem"><span highlight="HintExt"/></div>`,
-        screen.root[1].ownerDocument);
-    var root = screen.root[1];
+        root.ownerDocument);
 
     var appended;
     var item, value, rects;
     var top, left, width, height, rect, num, e, style;
     var ri, rj;
-    for (item in obj) {
+    for (item of obj) {
         value = item.value;
         rects = item.rect;
         appended = false;
@@ -670,14 +688,10 @@ _generate: function _generate(win, screen) {
 
         rect = frame.frameElement.getBoundingClientRect();
         if (rect.top > screen.bottom || rect.left > screen.right) continue;
-        var box = root.ownerDocument.createElementNS(XHTML, "div");
-        box.setAttributeNS(NS, "highlight", "HintExtFrameElem");
-        box.style.cssText = `left:${rect.left}px; top:${rect.top}px;width:${rect.width}px;height:${rect.height}px;`;
-        root.appendChild(box);
         aScreen = {
             top:  Math.max(0, - rect.top),
             left: Math.max(0, - rect.left),
-            root: [screen.root[0], box],
+            parent: root,
         };
         aScreen.right  = Math.min(screen.right,  rect.right) - rect.left;
         aScreen.bottom = Math.min(screen.bottom, rect.bottom) - rect.top;
@@ -809,7 +823,7 @@ onEvent: function onEvent(event) {
     },
     _removeHints: function (num) {
         if (num) {
-            this.setTimeout(function() this._removeHints(), num);
+            this.setTimeout(function() { this._removeHints(); }, num);
             return;
         }
         if (this._hintRoot) {
@@ -834,14 +848,14 @@ onEvent: function onEvent(event) {
             });
         }
     },
-    _isHintNumber: function (key) options.hintchars.indexOf(key) >= 0 || (key in this.simpleMaps),
+    _isHintNumber: function (key) { return options.hintchars.indexOf(key) >= 0 || (key in this.simpleMaps); },
     addSimpleMap: function _addSimpleMap(key, callback) {
         const map = this.simpleMaps;
         Array.concat(key).forEach(function (key) {
             map[events.canonicalKeys(key)] = callback;
         });
     },
-    removeSimpleMap: function (key) delete this.simpleMaps[key],
+    removeSimpleMap: function (key) { delete this.simpleMaps[key]; },
     redraw: function () {
         var minor = this._submode;
         var filter = this._hintString;
@@ -864,7 +878,7 @@ onEvent: function onEvent(event) {
     moveActiveHint: function moveActiveHint(count) {
         if (!count) count = 10;
         var startTime = Date.now();
-        var items = [for(i of this._validHints) if (i.label.style.display === "") i];
+        var items = []; for(let i of this._validHints) if (i.label.style.display === "") items.push(i);
         var last = items.length - 1;
         var oldNumber = this._hintNumber || 1;
 
@@ -907,7 +921,7 @@ onEvent: function onEvent(event) {
             const lines = [];
 
             var items = pageHints.slice(root.start, root.end);
-            items.sort(function (a, b) a.top - b.top);
+            items.sort((a, b) => a.top - b.top);
 
             var item, top = 0, a, bottom = -Infinity;
 
@@ -1112,7 +1126,7 @@ onEvent: function onEvent(event) {
         );
     },
 };
-this.Rect = HintsExt.Rect = function (left, top, right, bottom) ({
+this.Rect = HintsExt.Rect = (left, top, right, bottom) => ({
     left: left,
     top: top,
     right: right,
@@ -1126,27 +1140,30 @@ let src = Hints.prototype._processHints.toSource()
     .replace("let firstHref = this._validHints[0]", "let firstHref = !this._validHints[0].elem.getAttribute ? null : this._validHints[0].elem")
 ;
 
-HintsExt.prototype._processHints = liberator.eval("(function() " + src + ")()");
+HintsExt.prototype._processHints = liberator.eval(`(function() {
+    "use strict";
+    return ${src}
+})()`);
 
 ////input[not(@type='hidden')] | //xhtml:input[not(@type='hidden')] | //a | //xhtml:a | //area | //xhtml:area | //iframe | //xhtml:iframe | //textarea | //xhtml:textarea | //button | //xhtml:button | //select | //xhtml:select | //*[@onclick or @onmouseover or @onmousedown or @onmouseup or @oncommand or @role='link']
 let hinttags = HintsExt.prototype.hinttags
 = ["input:not([type='hidden'])", "a", "area", "iframe", "textarea", "button", "select"].concat(
-["onclick", "onmouseover", "onmousedown", "onmouseup", "oncommand", "tabindex"].map(function (s) "[" + s + "]"),
+["onclick", "onmouseover", "onmousedown", "onmouseup", "oncommand", "tabindex"].map(s => "[" + s + "]"),
 ['link' ,'button' ,'checkbox' ,'combobox' ,'listbox' ,'listitem' ,'menuitem' ,'menuitemcheckbox' ,
-    'menuitemradio' ,'option' ,'radio' ,'scrollbar' ,'slider' ,'spinbutton' ,'tab' ,'textbox' ,'treeitem'].map(function (s) "[role='"+s+"']")
+    'menuitemradio' ,'option' ,'radio' ,'scrollbar' ,'slider' ,'spinbutton' ,'tab' ,'textbox' ,'treeitem'].map(s => "[role='"+s+"']")
 ).join(",");
 
 let h = new HintsExt();
 
 modules.hints = h;
-hints.addModeEx("f", "Focus Frame", function(win) Buffer.focusedWindow = win, function (win, screen) [{rect: [screen], value: win}]);
+hints.addModeEx("f", "Focus Frame", win => Buffer.focusedWindow = win, (win, screen) => [{rect: [screen], value: win}]);
 
 if (liberator.globalVariables["use_hints_ext_hinttags"] && !options.get("het")) {
     options.add(["hintexttags", "het"],
         "XPath or query string of hintable elements activated by 'f' and 'F'",
         "string", hinttags, { scope: Option.SCOPE_BOTH });
     let defalutTags = Hints.Mode().tags.toString();
-    let queryTags = function () options.hintexttags;
+    let queryTags = () => options.hintexttags;
     for (let [a, obj] in Iterator(h._hintModes)) {
         if (obj.tags == defalutTags && !obj.generate) {
             h._hintModes[a] = Hints.Mode(obj[0], obj[1], queryTags);
@@ -1183,7 +1200,7 @@ if (liberator.globalVariables["use_hints_ext_extendedhinttags"]) {
                 if (this.prompt === "visual")
                     modes.set(modes.VISUAL, modes.CARET);
             },
-            generate: function textnode_generate(win, screen) {
+            generate: function* textnode_generate(win, screen) {
                 let nodes = getUtils(win).nodesFromRect(
                     screen.left, screen.top, 0, screen.right, screen.bottom, 0, true, true);
                 nodes = Array.slice(nodes);
@@ -1194,12 +1211,12 @@ if (liberator.globalVariables["use_hints_ext_extendedhinttags"]) {
                         if (e.nodeType === Node.TEXT_NODE)
                             a[a.length] = e;
                     }
-                    a.sort(function (a, b) a.compareDocumentPosition(b) & 0x2);
+                    a.sort((a, b) => a.compareDocumentPosition(b) & 0x2);
                     nodes = a;
                 }
                 var q;
                 var r = win.document.createRange();
-                nodes = nodes.filter(function (a) q !== (q = a));
+                nodes = nodes.filter(a => q !== (q = a));
                 for (let i = 0, j = nodes.length; i < j; i++) {
                     let e = nodes[i];
                     r.selectNode(e);
@@ -1230,7 +1247,7 @@ case 1: {
         let table = cache[r] || (cache[r] = {});
         return table[n] || (table[n] = (Math.pow(r, n) - 1) / (r - 1));
     }
-    function iterProgression(r) {
+    function* iterProgression(r) {
         let cur = 1, pre;
         for (let i = 2;; i++) {
             pre = cur;
@@ -1249,7 +1266,7 @@ case 1: {
         const self = this;
         let hintchars = options.hintchars;
         let base = hintchars.length;
-        let num = Array.reduce(chars, function(n, c) n * base + hintchars.indexOf(c), 0);
+        let num = Array.reduce(chars, (n, c) => n * base + hintchars.indexOf(c), 0);
 
         num += getProgression(base, chars.length);
 
