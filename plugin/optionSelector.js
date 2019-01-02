@@ -44,8 +44,8 @@ xml`<plugin name="option selector" version="0.0.1"
             events.feedkeys("<C-i>", true, true);
     });
 
-    function has(a, b) (b in a)
-    function is(a, b) a instanceof b
+    function has(a, b) { return (b in a); }
+    function is(a, b) { return a instanceof b; }
     function selectInput (elem) {
         if (!elem) elem = liberator.focus;
         if (!is(elem,HTMLSelectElement)) return;
@@ -84,7 +84,7 @@ xml`<plugin name="option selector" version="0.0.1"
                         aContext = aContext.fork(ic++, 0);
                         let label = parent.label || "";
                         aContext.title[0] = label;
-                        aContext.match = matcher(label) ? function() true : matcher;
+                        aContext.match = matcher(label) ? () => true : matcher;
                         list = [];
                   }
                   if (!parent.disabled && !opt.disabled)
@@ -92,10 +92,10 @@ xml`<plugin name="option selector" version="0.0.1"
                 }
                 aContext.completions = list;
 
-                function _getItem(opt) [opt.index + ": " + opt.text, opt.value]
+                function _getItem(opt) { return [opt.index + ": " + opt.text, opt.value]; }
             },
             onCancel: function () {
-                window.setTimeout(function() elem.focus(), 0);
+                window.setTimeout(() => elem.focus(), 0);
             }
         });
         options[key] && commandline._tabTimer.tell({shitKey: false});
