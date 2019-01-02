@@ -22,6 +22,8 @@ xml`<plugin name="complete-queryselector" version="0.0.2"
     </item>
 </plugin>`;
 //}}}
+
+let {plugins} = liberator;
 let JavaScript = javascript.__class__;
 JavaScript.completers["querySelector"] = javascriptCompleterQuerySelector;
 JavaScript.completers["querySelectorAll"] = javascriptCompleterQuerySelector;
@@ -67,8 +69,8 @@ let listPseudo = [
 let listStyles = (function () {
     let csssd = CSSStyleDeclaration.prototype;
     return Object.getOwnPropertyNames(csssd)
-    .filter(function (css) csssd.__lookupGetter__(css))
-    .map(function (css) css.replace(/[A-Z]/g, function (s) "-" + s.toLocaleLowerCase()));
+        .filter(css => csssd.__lookupGetter__(css))
+        .map(css => css.replace(/[A-Z]/g, s => "-" + s.toLocaleLowerCase()));
 })();
 
 // { xxx:...
@@ -114,7 +116,7 @@ function completeStyle(context) {
     context.advance(offset);
     //context.offset += offset;
     if (type === ";") {
-        context.completions = listStyles.map(function (c) [c, ""]);
+        context.completions = listStyles.map(c => [c, ""]);
     }
 }
 
@@ -289,7 +291,7 @@ function complete(context, obj) {
             val = cache.list;
         }
         else {
-            for (let [, node] in Iterator(obj.querySelectorAll(selector))) {
+            for (let [, node] of Iterator(obj.querySelectorAll(selector))) {
                 val.push(node.getAttribute(extra));
             }
             val = util.Array.uniq(val);
@@ -306,14 +308,14 @@ function complete(context, obj) {
                 c = context.filter[0];
                 context.quote = null;
             }
-            context.completions = val.map(function (v) [c + v + c, ""]);
+            context.completions = val.map(v => [c + v + c, ""]);
         });
         return;
     }
     else if (type === ":") {
         context.fork("pseudo", 0, this, function (context) {
             context.title = ["pseudo"];
-            context.completions = listPseudo.map(function (p) [":" + p, ""]);
+            context.completions = listPseudo.map(p => [":" + p, ""]);
         });
         return;
     }
@@ -331,7 +333,7 @@ function complete(context, obj) {
         try {
             Array.forEach(obj.querySelectorAll(selector), function (node) {
                 tags.push(node.tagName.toLowerCase());
-                Array.prototype.push.apply(attr, Array.map(node.attributes, function (a) a.name));
+                Array.prototype.push.apply(attr, Array.map(node.attributes, a => a.name));
                 //Fx3.6 NG classList
                 Array.prototype.push.apply(clas, Array.slice(node.classList || []));
                 if (node.id) ids.push(node.id);
@@ -354,28 +356,28 @@ function complete(context, obj) {
     if (type === "[") {
         context.fork("attr", 0, this, function (context) {
             context.title = ["attribute"];
-            context.completions = attr.map(function (a) [a, ""]);
+            context.completions = attr.map(a => [a, ""]);
         });
     }
     else if (type === "]" || type === ".") {
         context.fork("class", 0, this, function (context) {
             context.title = ["class"];
-            context.completions = clas.map(function (c) ["." + c, ""]);
+            context.completions = clas.map(c => ["." + c, ""]);
         });
     }
     else if (separator.indexOf(type) >= 0) {
         context.fork("tag", 0, this, function (context) {
             context.anchored = true;
             context.title = ["tag"];
-            context.completions = tags.map(function (n) [n, ""]);
+            context.completions = tags.map(n => [n, ""]);
         });
         context.fork("id", 0, this, function (context) {
             context.title = ["id"];
-            context.completions = ids.map(function (id) ["#" + id, ""]);
+            context.completions = ids.map(id => ["#" + id, ""]);
         });
         context.fork("class", 0, this, function (context) {
             context.title = ["class"];
-            context.completions = clas.map(function (c) ["." + c, ""]);
+            context.completions = clas.map(c => ["." + c, ""]);
         });
     }
 }
