@@ -64,7 +64,7 @@ xml`<plugin name="embed-esc" version="0.0.3"
 
     var timer = Cc["@mozilla.org/timer;1"].createInstance(Ci.nsITimer);
 
-    function getObserveKey() liberator.globalVariables.embed_esc_key || VK_ESCAPE
+    function getObserveKey() { return liberator.globalVariables.embed_esc_key || VK_ESCAPE; }
 
     let embedTimer = {
         observe: function () {
