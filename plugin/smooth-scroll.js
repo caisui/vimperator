@@ -52,11 +52,14 @@
         },
     });
     function Manager() {
-        this.x = new WeakMap;
-        this.y = new WeakMap;
-        this.array = [];
+        this.init();
     }
     update(Manager.prototype, {
+        init() {
+            this.x = new WeakMap;
+            this.y = new WeakMap;
+            this.array = [];
+        },
         get: function (e, dir) {
             var w = this[dir];
             var res = w.get(e);
@@ -108,7 +111,6 @@
                 this.handle = window[requestAnimationFrame](this.sample.bind(this));
             } else {
                 this.handle = 0;
-                Cu.reportError("new");
             }
         },
         update: function () {
@@ -117,13 +119,11 @@
             }
         },
         reset: function reset() {
-            this.array = [];
-            this.x.clear();
-            this.y.clear();
             if (this.handle) {
                 window[cancelRequestAnimationFrame](this.handle);
                 this.handle = 0;
             }
+            this.init();
         },
     });
 
@@ -322,7 +322,7 @@
         try {
             manager.reset();
         } catch (ex) {
-            liberator.echcoerr(ex);
+            liberator.echoerr(ex);
         }
     };
 
