@@ -1,5 +1,5 @@
 // vim: set fdm=marker:
-if (Services.vc.compare(Services.appinfo.version, "4") > 0) {
+if (1) {
     var INFO = //{{{
 xml`<plugin name="word-completer" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/word-completer.js"
@@ -55,7 +55,6 @@ xml`<plugin name="word-completer" version="0.0.1"
     };
     lazyGetter(this, "kanji", function () {
         function q(a, ...b) {
-            console.log(a, b);
             var res = "", n;
             for (var i = 0, j = a.length - 1; i < j; i++) {
                 res += a[i];
@@ -68,12 +67,6 @@ xml`<plugin name="word-completer" version="0.0.1"
             }
             return res + a[i];
         }
-
-        if (options.expandtemplate) {
-            let fn = q;
-            q = function q1(a, b) fn(a.cooked, ...b);
-        }
-
         // http://ja.wikipedia.org/wiki/UNICODE#.E4.B8.80.E8.A6.A7
         var code = `
             U+2E80-2EFF
@@ -143,8 +136,9 @@ xml`<plugin name="word-completer" version="0.0.1"
         ].join("|") + ")";
     });
 
-    function getUtils(win)
-        win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils)
+    function getUtils(win) {
+        return win.QueryInterface(Ci.nsIInterfaceRequestor).getInterface(Ci.nsIDOMWindowUtils);
+    }
     function getSelectionControllerFromWindow (view) {
         let selectionController = null;
         try {
@@ -159,9 +153,9 @@ xml`<plugin name="word-completer" version="0.0.1"
 
         return selectionController;
     }
-    let Rect = function Rect(x, y, w, h) ({x: x, y: y, width: w, height: h});
+    let Rect = function Rect(x, y, w, h) { return ({x: x, y: y, width: w, height: h}); };
 
-    function iterScreenText(win, extra) {
+    function* iterScreenText(win, extra) {
         if (!extra) extra = {};
         var rect = extra.rect || Rect(0, 0, win.innerWidth, win.innerHeight);
         var nodes = Array.slice(getUtils(win).nodesFromRect(rect.x, rect.y, 0, rect.width, rect.height, 0, true, true));
@@ -191,14 +185,14 @@ xml`<plugin name="word-completer" version="0.0.1"
                 );
 
                 if (frameExtra.rect.width * frameExtra.rect.height > 0) {
-                    for (var text in iterScreenText(frame, frameExtra))
+                    for (var text of iterScreenText(frame, frameExtra))
                         yield text;
                 }
             }
         }
     }
 
-    function iterWindowText(win, extra) {
+    function* iterWindowText(win, extra) {
         if (!extra) extra = {};
         var encoder =
             Cc["@mozilla.org/layout/documentEncoder;1?type=text/plain"].createInstance(Ci.nsIDocumentEncoder);
@@ -223,7 +217,7 @@ xml`<plugin name="word-completer" version="0.0.1"
 
         var re = new RegExp(source, "g");
         var seen = {}, res = [];
-        for (var str in extra.screen
+        for (var str of extra.screen
                 ? iterScreenText(win, extra) : iterWindowText(win, extra)) {
 
             while (match = re.exec(str)) {
@@ -249,7 +243,7 @@ xml`<plugin name="word-completer" version="0.0.1"
         }
         context.match = hints._hintMatcher(context.filter);
 
-        var words = context.getCache("words", function () getWords(context.window, extra));
+        var words = context.getCache("words", () => getWords(context.window, extra));
         context.completions = words;
     }
 
@@ -276,10 +270,8 @@ xml`<plugin name="word-completer" version="0.0.1"
         if (oldMode === modes.COMMAND_LINE) {
             var box = commandline._commandWidget;
             var editor = box.editor;
-            {
-                let comp = commandline._completions;
-                comp && comp.previewClear();
-            }
+            let comp = commandline._completions;
+            comp && comp.previewClear();
             var str = box.value;
             var prompt = commandline._promptWidget.value;
             if (extended === modes.PROMPT) {
@@ -335,7 +327,7 @@ xml`<plugin name="word-completer" version="0.0.1"
                 }
             });
         }, {
-            completer: function (context) wordCompleter(context, extra),
+            completer: context => wordCompleter(context, extra),
             onCancel: restore,
         });
     }
@@ -357,7 +349,7 @@ xml`<plugin name="word-completer" version="0.0.1"
                         str += " " + word;
                     liberator.execute(str);
                 }, {
-                    completer: function(context) wordCompleter(context, d.extra),
+                    completer: context => wordCompleter(context, d.extra),
                 });
             }
         }, { arg: true });
