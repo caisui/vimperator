@@ -1,4 +1,6 @@
 // vim: set fdm=marker:
+"use strict";
+
 (function () {
     const prefix = "mozRequestAnimationFrame" in window;
     const requestAnimationFrame =
@@ -160,11 +162,11 @@
             scrollTo(e, e.scrollLeftMax, null);
         },
         scrollTop: function () {
-            e = Buffer.findScrollable(-1, false);
+            let e = Buffer.findScrollable(-1, false);
             scrollTo(e, null, 0);
         },
         scrollBottom: function () {
-            e = Buffer.findScrollable(1, false);
+            let e = Buffer.findScrollable(1, false);
             scrollTo(e, null, e.scrollTopMax);
         },
         scrollByScrollSize: function (direction, count) {
