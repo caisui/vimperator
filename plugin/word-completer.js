@@ -1,4 +1,6 @@
 // vim: set fdm=marker:
+"use strict";
+
 if (1) {
     var INFO = //{{{
 xml`<plugin name="word-completer" version="0.0.1"
