@@ -1,5 +1,6 @@
 // vim: set sw=4 ts=4 fdm=marker et :
-//"use strict";
+"use strict";
+
 var INFO = //{{{
 xml`<plugin name="hints-ext" version="0.0.3"
         href="http://github.com/caisui/vimperator/blob/master/plugin/hints-ext.js"
@@ -317,7 +318,7 @@ _showHints: function () {
             let item = pageHints[i];
 
             if (test(item.text)) {
-                kNum = validHints.length;
+                var kNum = validHints.length;
                 validHints[kNum] = item;
                 var display = "";
             } else {
