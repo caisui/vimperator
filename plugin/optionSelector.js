@@ -1,4 +1,6 @@
 // vim: set et sw=4 ts=4:
+"use strict";
+
 var INFO =
 xml`<plugin name="option selector" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/optionSelector.js"
@@ -35,16 +37,12 @@ xml`<plugin name="option selector" version="0.0.1"
     const key = "optionselectautoshow";
     options.add([key], "select completer auto show", "boolean", true);
 
-    (function () {
-          let map = mappings.get(modes.INSERT, "<C-i>");
-          if(!map) return;
-
-          let action = map.action;
-          map.action = function () {
-            if (is(liberator.focus, HTMLSelectElement)) selectInput(liberator.focus);
-            else action.call(this, arguments);
-          };
-    })();
+    mappings.addUserMap([modes.INSERT], ["<C-i>"], "", () => {
+        if (is(liberator.focus, HTMLSelectElement))
+            selectInput(liberator.focus);
+        else
+            events.feedkeys("<C-i>", true, true);
+    });
 
     function has(a, b) (b in a)
     function is(a, b) a instanceof b
@@ -66,22 +64,28 @@ xml`<plugin name="option selector" version="0.0.1"
                 if (elem.options.length === 0) return;
 
                 context.filter = context.filter.trim();
+                context.anchored = false;
 
                 let matcher = hints._hintMatcher(context.filter);
                 context.match = matcher;
+                context.compare = null;
+                //context.filters = [CompletionContext.Filter.textAndDescription];
 
                 let parent = elem;
                 let aContext = context;
-                let list = [[" ", ""]];
-                for (let opt in util.Array.itervalues(elem.options)) {
+                let list = [["", ""]];
+
+                let ic = 0;
+                for (let opt of elem.options) {
                   if (parent !== (parent = opt.parentNode)) {
-                        aContext.completions = list;
-                        aContext = CompletionContext(context, context.contextList.length, 0);
+                        if (list.length) {
+                            aContext.completions = list;
+                        }
+                        aContext = aContext.fork(ic++, 0);
                         let label = parent.label || "";
                         aContext.title[0] = label;
                         aContext.match = matcher(label) ? function() true : matcher;
                         list = [];
-                        context.contextList.push(aContext);
                   }
                   if (!parent.disabled && !opt.disabled)
                     list.push(_getItem(opt));
