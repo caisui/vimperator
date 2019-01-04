@@ -1,4 +1,6 @@
 // vim:set sw=4 ts=4 et:
+"use strict";
+
 var INFO = //{{{
 xml`<plugin name="statusline-ssl" version="0.0.1"
         href="http://github.com/caisui/vimperator/blob/master/plugin/statusline-ssl.js"

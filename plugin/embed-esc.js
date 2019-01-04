@@ -1,4 +1,6 @@
 // vim:set sw=4 ts=4 fdm=marker:
+"use strict";
+
 var INFO = //{{{
 xml`<plugin name="embed-esc" version="0.0.3"
         href="http://github.com/caisui/vimperator/blob/master/plugin/embed-esc.js"
