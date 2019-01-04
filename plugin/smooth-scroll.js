@@ -237,7 +237,7 @@
 
                     var f = win.frameElement;
                     while (f) {
-                        r = f.getBoundingClientRect();
+                        let r = f.getBoundingClientRect();
                         var w = f.ownerDocument.defaultView;
                         screen.intersectRect(-r.left, -r.top, w.innerWidth, w.innerHeight);
                         f = w.frameElement;
